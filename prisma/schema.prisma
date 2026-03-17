@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Habit {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  icon        String?
+  streak      Int        @default(0)
+  active      Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  logs        HabitLog[]
+}
+
+model HabitLog {
+  id        String   @id @default(cuid())
+  habitId   String
+  date      DateTime @db.Date
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  habit     Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, date])
+}
+
+model WaterLog {
+  id        String   @id @default(cuid())
+  date      DateTime @db.Date @unique
+  cups      Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+model NegocioMetric {
+  id              String   @id @default(cuid())
+  date            DateTime @db.Date @unique
+  ventas          Float    @default(0)
+  pedidos         Int      @default(0)
+  igFollowers     Int      @default(0)
+  tiktokFollowers Int      @default(0)
+  waContacts      Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model RunSession {
+  id          String   @id @default(cuid())
+  date        DateTime @db.Date
+  distanceKm  Float
+  durationMin Float
+  avgHr       Int?
+  zone        String?
+  type        String   @default("Easy")
+  notes       String?
+  createdAt   DateTime @default(now())
+}
+
+model SleepLog {
+  id          String   @id @default(cuid())
+  date        DateTime @db.Date @unique
+  bedtime     String
+  wakeTime    String
+  hours       Float
+  quality     Int      @default(3)
+  bodyBattery Int?
+  stressScore Int?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Goal {
+  id           String   @id @default(cuid())
+  name         String
+  area         String
+  currentValue Float    @default(0)
+  targetValue  Float
+  unit         String
+  deadline     DateTime
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model TradingModule {
+  id     String  @id @default(cuid())
+  number Int     @unique
+  name   String
+  done   Boolean @default(false)
+}
+
+model TradingNote {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
