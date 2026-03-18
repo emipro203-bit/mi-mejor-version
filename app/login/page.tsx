@@ -35,7 +35,7 @@ export default function LoginPage() {
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error || "Error al registrarse");
+      setError(data.detail || data.error || "Error al registrarse");
       setLoading(false);
       return;
     }
