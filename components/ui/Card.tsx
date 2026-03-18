@@ -6,10 +6,7 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export function Card({ children, className, ...props }: CardProps) {
   return (
-    <div
-      className={cn("card", className)}
-      {...props}
-    >
+    <div className={cn("card", className)} {...props}>
       {children}
     </div>
   );
@@ -27,7 +24,7 @@ export function CardTitle({ children, className, ...props }: CardProps) {
   return (
     <h2
       className={cn("text-lg font-semibold", className)}
-      style={{ fontFamily: "'Playfair Display', serif", color: "#F5F0E8" }}
+      style={{ fontFamily: "'Playfair Display', serif", color: "var(--foreground)" }}
       {...props}
     >
       {children}

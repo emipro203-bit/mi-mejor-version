@@ -17,12 +17,8 @@ export function Button({
       className={cn(
         "font-medium rounded-xl transition-all duration-200 active:scale-95",
         {
-          // Variants
-          "text-black hover:opacity-90": variant === "gold",
-          "hover:text-white border": variant === "ghost",
-          "text-white hover:opacity-90": variant === "danger",
-
-          // Sizes
+          "hover:opacity-90": variant === "gold" || variant === "danger",
+          "border hover:opacity-80": variant === "ghost",
           "px-3 py-1.5 text-sm": size === "sm",
           "px-4 py-2.5 text-sm": size === "md",
           "px-6 py-3 text-base": size === "lg",
@@ -32,12 +28,17 @@ export function Button({
       style={{
         background:
           variant === "gold"
-            ? "linear-gradient(135deg, #9A7A35, #C9A84C)"
+            ? "linear-gradient(135deg, var(--gold-dark), var(--gold))"
             : variant === "danger"
-            ? "#E05C5C"
+            ? "var(--error)"
             : "transparent",
-        borderColor: variant === "ghost" ? "#2E2A22" : undefined,
-        color: variant === "ghost" ? "#6B6355" : undefined,
+        color:
+          variant === "gold"
+            ? "var(--background)"
+            : variant === "danger"
+            ? "#fff"
+            : "var(--muted)",
+        borderColor: variant === "ghost" ? "var(--border)" : undefined,
       }}
       {...props}
     >

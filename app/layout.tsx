@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import BottomNav from "@/components/BottomNav";
 import Sidebar from "@/components/Sidebar";
+import { Providers } from "@/components/Providers";
 
 export const metadata: Metadata = {
   title: "Mi Mejor Versión",
@@ -23,26 +24,21 @@ export const viewport: Viewport = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es">
+    <html lang="es" data-theme="dark" suppressHydrationWarning>
       <body>
-        <div className="flex min-h-screen">
-          {/* Sidebar — solo desktop */}
-          <Sidebar />
-
-          {/* Main content */}
-          <main className="flex-1 md:ml-64 pb-20 md:pb-0 min-h-screen">
-            <div className="max-w-2xl mx-auto px-4 py-6 md:px-6 md:py-8">
-              {children}
-            </div>
-          </main>
-        </div>
-
-        {/* Bottom nav — solo mobile */}
-        <BottomNav />
+        <Providers>
+          <div className="flex min-h-screen">
+            <Sidebar />
+            <main className="flex-1 md:ml-64 pb-20 md:pb-0 min-h-screen">
+              <div className="max-w-2xl mx-auto px-4 py-6 md:px-6 md:py-8">
+                {children}
+              </div>
+            </main>
+          </div>
+          <BottomNav />
+        </Providers>
       </body>
     </html>
   );

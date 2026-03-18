@@ -1,8 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { getUserId, unauthorized } from "@/lib/session";
 
 export async function GET() {
+  const userId = await getUserId();
+  if (!userId) return unauthorized();
+
   const sessions = await prisma.runSession.findMany({
+    where: { userId },
     orderBy: { date: "desc" },
     take: 50,
   });
@@ -10,9 +15,13 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const userId = await getUserId();
+  if (!userId) return unauthorized();
+
   const body = await req.json();
   const session = await prisma.runSession.create({
     data: {
+      userId,
       date: new Date(body.date),
       distanceKm: body.distanceKm,
       durationMin: body.durationMin,
@@ -26,6 +35,9 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  const userId = await getUserId();
+  if (!userId) return unauthorized();
+
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });

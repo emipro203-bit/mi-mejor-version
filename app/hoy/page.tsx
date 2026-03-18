@@ -2,7 +2,11 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { todayISO } from "@/lib/utils";
+import { format, subDays, eachDayOfInterval } from "date-fns";
+import { es } from "date-fns/locale";
 
 const MOTIVATIONAL_QUOTES = [
   "Cada día es una nueva oportunidad de convertirte en la mejor versión de ti mismo.",
@@ -12,19 +16,30 @@ const MOTIVATIONAL_QUOTES = [
   "La disciplina es el puente entre metas y logros.",
 ];
 
+const EMOJI_OPTIONS = ["🏃","🧘","💎","🥗","💧","📚","🌙","⚡","💪","🎯","🧠","❤️","🌿","✍️","🎵","🚿","🛏️","🥤","🏋️","🧹"];
+
 interface Habit {
   id: string;
   name: string;
   icon: string;
+  description?: string;
   streak: number;
   logs: { date: string; done: boolean }[];
 }
+
+type EditForm = { id?: string; name: string; icon: string; description: string };
+const EMPTY_FORM: EditForm = { name: "", icon: "⚡", description: "" };
 
 export default function HoyPage() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [todayLogs, setTodayLogs] = useState<Record<string, boolean>>({});
   const [waterCups, setWaterCups] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [managing, setManaging] = useState(false);
+  const [form, setForm] = useState<EditForm>(EMPTY_FORM);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
   const today = todayISO();
   const quote = MOTIVATIONAL_QUOTES[new Date().getDay() % MOTIVATIONAL_QUOTES.length];
 
@@ -39,35 +54,34 @@ export default function HoyPage() {
     setHabits(habitsData);
     setWaterCups(waterData.cups || 0);
 
-    // Build today's logs map
     const logs: Record<string, boolean> = {};
     for (const h of habitsData) {
       const todayLog = h.logs?.find(
-        (l: { date: string; done: boolean }) =>
+        (l: { date: string }) =>
           new Date(l.date).toISOString().split("T")[0] === today
       );
-      logs[h.id] = todayLog?.done || false;
+      logs[h.id] = (todayLog as { done?: boolean })?.done || false;
     }
     setTodayLogs(logs);
     setLoading(false);
   }, [today]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const toggleHabit = async (habitId: string) => {
     const newDone = !todayLogs[habitId];
     setTodayLogs((prev) => ({ ...prev, [habitId]: newDone }));
 
-    await fetch("/api/habits/log", {
+    const res = await fetch("/api/habits/log", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ habitId, date: today, done: newDone }),
     });
+    const data = await res.json();
 
-    // Refresh to get updated streak
-    fetchData();
+    setHabits((prev) =>
+      prev.map((h) => h.id === habitId ? { ...h, streak: data.streak } : h)
+    );
   };
 
   const setWater = async (cups: number) => {
@@ -79,20 +93,64 @@ export default function HoyPage() {
     });
   };
 
+  const openNew = () => {
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+  };
+
+  const openEdit = (h: Habit) => {
+    setEditingId(h.id);
+    setForm({ id: h.id, name: h.name, icon: h.icon || "⚡", description: h.description || "" });
+  };
+
+  const saveHabit = async () => {
+    if (!form.name.trim()) return;
+    setSaving(true);
+    if (editingId) {
+      await fetch("/api/habits", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editingId, name: form.name, icon: form.icon, description: form.description }),
+      });
+    } else {
+      await fetch("/api/habits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: form.name, icon: form.icon, description: form.description }),
+      });
+    }
+    await fetchData();
+    setForm(EMPTY_FORM);
+    setEditingId(null);
+    setSaving(false);
+  };
+
+  const deleteHabit = async (id: string) => {
+    await fetch(`/api/habits?id=${id}`, { method: "DELETE" });
+    fetchData();
+  };
+
   const completedCount = Object.values(todayLogs).filter(Boolean).length;
   const dateLabel = new Date().toLocaleDateString("es-MX", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
+    weekday: "long", day: "numeric", month: "long",
   });
+
+  // Week strip: last 7 days
+  const weekDays = eachDayOfInterval({ start: subDays(new Date(), 6), end: new Date() });
+  const habitPctForDay = (dayISO: string) => {
+    if (habits.length === 0) return 0;
+    const done = habits.reduce((acc, h) => {
+      const log = h.logs?.find(l => new Date(l.date).toISOString().split("T")[0] === dayISO);
+      return acc + (log?.done ? 1 : 0);
+    }, 0);
+    return done / habits.length;
+  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div
-          className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
-          style={{ borderColor: "#C9A84C", borderTopColor: "transparent" }}
-        />
+        <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
+          style={{ borderColor: "var(--gold)", borderTopColor: "transparent" }} />
       </div>
     );
   }
@@ -101,134 +159,205 @@ export default function HoyPage() {
     <div className="space-y-5">
       {/* Header */}
       <div>
-        <p className="text-sm capitalize" style={{ color: "#6B6355" }}>
-          {dateLabel}
-        </p>
-        <h1
-          className="text-3xl font-bold mt-1"
-          style={{
-            fontFamily: "'Playfair Display', serif",
-            background: "linear-gradient(135deg, #C9A84C 0%, #E8C875 100%)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-          }}
-        >
+        <p className="text-sm capitalize" style={{ color: "var(--muted)" }}>{dateLabel}</p>
+        <h1 className="text-3xl font-bold mt-1" style={{
+          fontFamily: "'Playfair Display', serif",
+          background: "linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%)",
+          WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
+        }}>
           Buenos días ✨
         </h1>
       </div>
 
-      {/* Stats summary */}
+      {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="card text-center">
-          <div
-            className="text-2xl font-bold"
-            style={{ color: "#C9A84C", fontFamily: "'Playfair Display', serif" }}
-          >
-            {completedCount}
+        {[
+          { value: completedCount, label: "hábitos" },
+          { value: waterCups, label: "vasos agua" },
+          { value: `${habits.length > 0 ? Math.round((completedCount / habits.length) * 100) : 0}%`, label: "completado" },
+        ].map((s) => (
+          <div key={s.label} className="card text-center">
+            <div className="text-2xl font-bold" style={{ color: "var(--gold)", fontFamily: "'Playfair Display', serif" }}>
+              {s.value}
+            </div>
+            <div className="text-xs mt-1" style={{ color: "var(--muted)" }}>{s.label}</div>
           </div>
-          <div className="text-xs mt-1" style={{ color: "#6B6355" }}>
-            hábitos
-          </div>
-        </div>
-        <div className="card text-center">
-          <div
-            className="text-2xl font-bold"
-            style={{ color: "#C9A84C", fontFamily: "'Playfair Display', serif" }}
-          >
-            {waterCups}
-          </div>
-          <div className="text-xs mt-1" style={{ color: "#6B6355" }}>
-            vasos agua
-          </div>
-        </div>
-        <div className="card text-center">
-          <div
-            className="text-2xl font-bold"
-            style={{ color: "#C9A84C", fontFamily: "'Playfair Display', serif" }}
-          >
-            {habits.length > 0
-              ? Math.round((completedCount / habits.length) * 100)
-              : 0}
-            %
-          </div>
-          <div className="text-xs mt-1" style={{ color: "#6B6355" }}>
-            completado
-          </div>
-        </div>
+        ))}
+      </div>
+
+      {/* Week strip */}
+      <div className="grid grid-cols-7 gap-1">
+        {weekDays.map(day => {
+          const ds = day.toISOString().split("T")[0];
+          const isToday = ds === today;
+          const pct = habitPctForDay(ds);
+          return (
+            <div key={ds} className="flex flex-col items-center gap-1">
+              <span className="text-[10px] capitalize" style={{ color: "var(--muted)" }}>
+                {format(day, "EEE", { locale: es }).slice(0, 2)}
+              </span>
+              <div className="w-full aspect-square rounded-xl relative overflow-hidden"
+                style={{
+                  background: "var(--surface)",
+                  border: `1px solid ${isToday ? "rgba(201,168,76,0.5)" : "var(--border)"}`,
+                }}>
+                {pct > 0 && (
+                  <div className="absolute bottom-0 left-0 right-0 transition-all"
+                    style={{
+                      height: `${pct * 100}%`,
+                      background: pct === 1
+                        ? "linear-gradient(0deg, rgba(76,175,125,0.5), rgba(76,175,125,0.2))"
+                        : "linear-gradient(0deg, rgba(201,168,76,0.5), rgba(201,168,76,0.1))",
+                    }}
+                  />
+                )}
+                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold"
+                  style={{ color: isToday ? "var(--gold)" : "var(--foreground)", opacity: 0.8 }}>
+                  {format(day, "d")}
+                </span>
+              </div>
+              <span className="text-[9px]" style={{ color: pct > 0 ? (pct === 1 ? "#4CAF7D" : "var(--gold)") : "var(--muted)" }}>
+                {pct > 0 ? `${Math.round(pct * 100)}%` : "—"}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
       {/* Habits checklist */}
       <Card>
         <CardHeader>
-          <CardTitle>Hábitos de hoy</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Hábitos de hoy</CardTitle>
+            <button
+              onClick={() => { setManaging(!managing); setForm(EMPTY_FORM); setEditingId(null); }}
+              className="text-xs px-3 py-1.5 rounded-xl transition-all"
+              style={{
+                background: managing ? "rgba(201,168,76,0.15)" : "var(--surface)",
+                border: `1px solid ${managing ? "rgba(201,168,76,0.4)" : "var(--border)"}`,
+                color: managing ? "var(--gold)" : "var(--muted)",
+              }}
+            >
+              {managing ? "✓ Listo" : "⚙️ Gestionar"}
+            </button>
+          </div>
         </CardHeader>
+
+        {/* Manage mode: form */}
+        {managing && (
+          <div className="mb-4 p-3 rounded-xl space-y-3" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+            <p className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+              {editingId ? "Editando hábito" : "Nuevo hábito"}
+            </p>
+
+            {/* Emoji picker */}
+            <div>
+              <p className="text-xs mb-2" style={{ color: "var(--muted-2, var(--muted))" }}>Ícono</p>
+              <div className="flex flex-wrap gap-1.5">
+                {EMOJI_OPTIONS.map((e) => (
+                  <button key={e} onClick={() => setForm((f) => ({ ...f, icon: e }))}
+                    className="w-9 h-9 rounded-lg text-lg transition-all"
+                    style={{
+                      background: form.icon === e ? "rgba(201,168,76,0.2)" : "var(--surface-2, var(--surface))",
+                      border: `1px solid ${form.icon === e ? "rgba(201,168,76,0.5)" : "var(--border)"}`,
+                    }}
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Input label="Nombre" placeholder="ej. Meditación" value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+            <Input label="Descripción (opcional)" placeholder="ej. 10 minutos al despertar"
+              value={form.description}
+              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+
+            <div className="flex gap-2">
+              <Button onClick={saveHabit} disabled={saving || !form.name.trim()} size="sm" className="flex-1">
+                {saving ? "..." : editingId ? "Guardar cambios" : "Agregar hábito"}
+              </Button>
+              {editingId && (
+                <Button onClick={() => { setEditingId(null); setForm(EMPTY_FORM); }}
+                  variant="ghost" size="sm">
+                  Cancelar
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="space-y-2">
           {habits.map((habit) => {
             const done = todayLogs[habit.id] || false;
             return (
-              <button
-                key={habit.id}
-                onClick={() => toggleHabit(habit.id)}
-                className="w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200 text-left"
-                style={{
-                  background: done
-                    ? "rgba(201, 168, 76, 0.1)"
-                    : "rgba(255,255,255,0.02)",
-                  border: `1px solid ${done ? "rgba(201, 168, 76, 0.3)" : "#2E2A22"}`,
-                }}
-              >
-                {/* Checkbox */}
-                <div
-                  className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
+              <div key={habit.id} className="flex items-center gap-2">
+                <button
+                  onClick={() => !managing && toggleHabit(habit.id)}
+                  className="flex-1 flex items-center gap-3 p-3 rounded-xl transition-all duration-200 text-left"
                   style={{
-                    background: done
-                      ? "linear-gradient(135deg, #9A7A35, #C9A84C)"
-                      : "transparent",
-                    border: done ? "none" : "2px solid #2E2A22",
+                    background: done ? "rgba(201, 168, 76, 0.1)" : "var(--surface)",
+                    border: `1px solid ${done ? "rgba(201, 168, 76, 0.3)" : "var(--border)"}`,
+                    cursor: managing ? "default" : "pointer",
                   }}
                 >
-                  {done && (
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                      <path
-                        d="M2 6l3 3 5-5"
-                        stroke="black"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  )}
-                </div>
-
-                {/* Icon + name */}
-                <span className="text-lg">{habit.icon || "⚡"}</span>
-                <span
-                  className="flex-1 text-sm font-medium"
-                  style={{
-                    color: done ? "#C9A84C" : "#F5F0E8",
-                    textDecoration: done ? "line-through" : "none",
-                    opacity: done ? 0.7 : 1,
-                  }}
-                >
-                  {habit.name}
-                </span>
-
-                {/* Streak */}
-                {habit.streak > 0 && (
-                  <span
-                    className="text-xs px-2 py-0.5 rounded-full"
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
                     style={{
-                      background: "rgba(201, 168, 76, 0.15)",
-                      color: "#C9A84C",
+                      background: done ? "linear-gradient(135deg, var(--gold-dark), var(--gold))" : "transparent",
+                      border: done ? "none" : "2px solid var(--border)",
                     }}
                   >
-                    🔥 {habit.streak}
+                    {done && (
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <path d="M2 6l3 3 5-5" stroke="var(--background)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  </div>
+                  <span className="text-lg">{habit.icon || "⚡"}</span>
+                  <span className="flex-1 text-sm font-medium" style={{
+                    color: done ? "var(--gold)" : "var(--foreground)",
+                    textDecoration: done ? "line-through" : "none",
+                    opacity: done ? 0.7 : 1,
+                  }}>
+                    {habit.name}
                   </span>
+                  {habit.streak > 0 && (
+                    <span className="text-xs px-2 py-0.5 rounded-full"
+                      style={{ background: "rgba(201, 168, 76, 0.15)", color: "var(--gold)" }}>
+                      🔥 {habit.streak}
+                    </span>
+                  )}
+                </button>
+
+                {/* Manage buttons */}
+                {managing && (
+                  <div className="flex gap-1 flex-shrink-0">
+                    <button onClick={() => openEdit(habit)}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center transition-opacity hover:opacity-100 opacity-60"
+                      style={{ background: "rgba(201,168,76,0.1)", color: "var(--gold)" }}>
+                      ✏️
+                    </button>
+                    <button onClick={() => deleteHabit(habit.id)}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center transition-opacity hover:opacity-100 opacity-60"
+                      style={{ background: "rgba(224,92,92,0.1)", color: "var(--error)" }}>
+                      ✕
+                    </button>
+                  </div>
                 )}
-              </button>
+              </div>
             );
           })}
+
+          {/* Add button in manage mode */}
+          {managing && !editingId && (
+            <button onClick={openNew}
+              className="w-full p-3 rounded-xl text-sm transition-all mt-1"
+              style={{ border: "1px dashed var(--border)", color: "var(--muted)" }}
+            >
+              + Agregar hábito
+            </button>
+          )}
         </div>
       </Card>
 
@@ -237,54 +366,38 @@ export default function HoyPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Hidratación</CardTitle>
-            <span className="text-sm" style={{ color: "#6B6355" }}>
+            <span className="text-sm" style={{ color: "var(--muted)" }}>
               {waterCups * 250} / 2,500 ml
             </span>
           </div>
           <div className="progress-bar mt-3">
-            <div
-              className="progress-bar-fill"
-              style={{ width: `${Math.min(100, (waterCups / 10) * 100)}%` }}
-            />
+            <div className="progress-bar-fill" style={{ width: `${Math.min(100, (waterCups / 10) * 100)}%` }} />
           </div>
         </CardHeader>
         <div className="grid grid-cols-5 gap-2">
           {Array.from({ length: 10 }, (_, i) => (
-            <button
-              key={i}
-              onClick={() => setWater(i < waterCups ? i : i + 1)}
+            <button key={i} onClick={() => setWater(i < waterCups ? i : i + 1)}
               className="aspect-square rounded-xl flex items-center justify-center text-xl transition-all duration-150 active:scale-90"
               style={{
-                background:
-                  i < waterCups
-                    ? "rgba(92, 155, 224, 0.2)"
-                    : "rgba(255,255,255,0.03)",
-                border: `1px solid ${i < waterCups ? "rgba(92, 155, 224, 0.4)" : "#2E2A22"}`,
+                background: i < waterCups ? "rgba(92, 155, 224, 0.2)" : "var(--surface)",
+                border: `1px solid ${i < waterCups ? "rgba(92, 155, 224, 0.4)" : "var(--border)"}`,
               }}
             >
               💧
             </button>
           ))}
         </div>
-        <p className="text-xs mt-3 text-center" style={{ color: "#6B6355" }}>
-          {waterCups >= 10
-            ? "🎉 ¡Meta de hidratación alcanzada!"
-            : `${10 - waterCups} vasos para completar la meta`}
+        <p className="text-xs mt-3 text-center" style={{ color: "var(--muted)" }}>
+          {waterCups >= 10 ? "🎉 ¡Meta de hidratación alcanzada!" : `${10 - waterCups} vasos para completar la meta`}
         </p>
       </Card>
 
-      {/* Motivational quote */}
-      <div
-        className="p-4 rounded-xl"
-        style={{
-          background: "linear-gradient(135deg, rgba(201,168,76,0.08) 0%, rgba(201,168,76,0.03) 100%)",
-          border: "1px solid rgba(201,168,76,0.15)",
-        }}
-      >
-        <p
-          className="text-sm italic text-center leading-relaxed"
-          style={{ color: "#A89880" }}
-        >
+      {/* Quote */}
+      <div className="p-4 rounded-xl" style={{
+        background: "linear-gradient(135deg, rgba(201,168,76,0.08) 0%, rgba(201,168,76,0.03) 100%)",
+        border: "1px solid rgba(201,168,76,0.15)",
+      }}>
+        <p className="text-sm italic text-center leading-relaxed" style={{ color: "var(--muted-2, var(--muted))" }}>
           &ldquo;{quote}&rdquo;
         </p>
       </div>

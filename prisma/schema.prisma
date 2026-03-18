@@ -6,8 +6,17 @@ datasource db {
   provider = "postgresql"
 }
 
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String
+  createdAt DateTime @default(now())
+}
+
 model Habit {
   id          String     @id @default(cuid())
+  userId      String?
   name        String
   description String?
   icon        String?
@@ -31,14 +40,18 @@ model HabitLog {
 
 model WaterLog {
   id        String   @id @default(cuid())
-  date      DateTime @db.Date @unique
+  userId    String?
+  date      DateTime @db.Date
   cups      Int      @default(0)
   updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
 }
 
 model NegocioMetric {
   id              String   @id @default(cuid())
-  date            DateTime @db.Date @unique
+  userId          String?
+  date            DateTime @db.Date
   ventas          Float    @default(0)
   pedidos         Int      @default(0)
   igFollowers     Int      @default(0)
@@ -46,10 +59,13 @@ model NegocioMetric {
   waContacts      Int      @default(0)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  @@unique([userId, date])
 }
 
 model RunSession {
   id          String   @id @default(cuid())
+  userId      String?
   date        DateTime @db.Date
   distanceKm  Float
   durationMin Float
@@ -62,7 +78,8 @@ model RunSession {
 
 model SleepLog {
   id          String   @id @default(cuid())
-  date        DateTime @db.Date @unique
+  userId      String?
+  date        DateTime @db.Date
   bedtime     String
   wakeTime    String
   hours       Float
@@ -72,10 +89,13 @@ model SleepLog {
   notes       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@unique([userId, date])
 }
 
 model Goal {
   id           String   @id @default(cuid())
+  userId       String?
   name         String
   area         String
   currentValue Float    @default(0)
@@ -89,15 +109,31 @@ model Goal {
 
 model TradingModule {
   id     String  @id @default(cuid())
-  number Int     @unique
+  userId String?
+  number Int
   name   String
   done   Boolean @default(false)
+
+  @@unique([userId, number])
 }
 
 model TradingNote {
   id        String   @id @default(cuid())
+  userId    String?
   title     String
   content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CalendarEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  title     String
+  date      DateTime @db.Date
+  color     String   @default("#C9A84C")
+  type      String   @default("event")
+  done      Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
