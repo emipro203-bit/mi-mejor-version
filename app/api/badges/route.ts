@@ -81,15 +81,17 @@ export async function GET() {
   if (!userId) return unauthorized();
 
   try {
-    const [earned, allBadges] = await Promise.all([
-      checkAndAward(userId),
+    // Must await checkAndAward BEFORE reading badges, otherwise the read
+    // runs before the inserts complete (race condition).
+    const earned = await checkAndAward(userId);
+
+    const [allBadges, streak] = await Promise.all([
       prisma.userBadge.findMany({ where: { userId } }),
+      computeGlobalStreak(userId),
     ]);
 
     const unlockedMap: Record<string, string> = {};
     for (const b of allBadges) unlockedMap[b.badge] = b.unlockedAt.toISOString();
-
-    const streak = await computeGlobalStreak(userId);
 
     const badges = BADGE_DEFS.map(def => ({
       ...def,
@@ -99,8 +101,8 @@ export async function GET() {
 
     return NextResponse.json({ badges, streak, newlyEarned: earned });
   } catch (e) {
-    console.error(e);
-    return NextResponse.json({ badges: [], streak: 0, newlyEarned: [] });
+    console.error("Badges error:", e);
+    return NextResponse.json({ badges: BADGE_DEFS.map(d => ({ ...d, unlocked: false, unlockedAt: null })), streak: 0, newlyEarned: [] });
   }
 }
 
