@@ -7,10 +7,10 @@ import { ThemeToggle } from "./ThemeToggle";
 
 const navItems = [
   { href: "/hoy", label: "Hoy", icon: "☀️" },
-  { href: "/stats", label: "Stats", icon: "📊" },
   { href: "/calendario", label: "Cal", icon: "📅" },
+  { href: "/pomodoro", label: "Foco", icon: "🍅" },
+  { href: "/logros", label: "Logros", icon: "🏆" },
   { href: "/metas", label: "Metas", icon: "🎯" },
-  { href: "/recordatorios", label: "Avisos", icon: "🔔" },
 ];
 
 export default function BottomNav() {

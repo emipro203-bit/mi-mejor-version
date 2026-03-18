@@ -7,14 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { todayISO } from "@/lib/utils";
 import { format, subDays, eachDayOfInterval } from "date-fns";
 import { es } from "date-fns/locale";
-
-const MOTIVATIONAL_QUOTES = [
-  "Cada día es una nueva oportunidad de convertirte en la mejor versión de ti mismo.",
-  "El éxito no es final, el fracaso no es fatal. Lo que cuenta es el coraje de continuar.",
-  "Pequeñas acciones consistentes crean grandes resultados.",
-  "Tu único competidor eres el tú de ayer.",
-  "La disciplina es el puente entre metas y logros.",
-];
+import { getDailyQuote } from "@/lib/quotes";
 
 const EMOJI_OPTIONS = ["🏃","🧘","💎","🥗","💧","📚","🌙","⚡","💪","🎯","🧠","❤️","🌿","✍️","🎵","🚿","🛏️","🥤","🏋️","🧹"];
 
@@ -39,9 +32,10 @@ export default function HoyPage() {
   const [form, setForm] = useState<EditForm>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [globalStreak, setGlobalStreak] = useState(0);
 
   const today = todayISO();
-  const quote = MOTIVATIONAL_QUOTES[new Date().getDay() % MOTIVATIONAL_QUOTES.length];
+  const quote = getDailyQuote();
 
   const fetchData = useCallback(async () => {
     const [habitsRes, waterRes] = await Promise.all([
@@ -67,6 +61,13 @@ export default function HoyPage() {
   }, [today]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    fetch("/api/streak")
+      .then(r => r.json())
+      .then(d => setGlobalStreak(d.streak ?? 0))
+      .catch(() => null);
+  }, []);
 
   const toggleHabit = async (habitId: string) => {
     const newDone = !todayLogs[habitId];
@@ -170,11 +171,12 @@ export default function HoyPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-2">
         {[
           { value: completedCount, label: "hábitos" },
           { value: waterCups, label: "vasos agua" },
           { value: `${habits.length > 0 ? Math.round((completedCount / habits.length) * 100) : 0}%`, label: "completado" },
+          { value: `🔥${globalStreak}`, label: "racha global" },
         ].map((s) => (
           <div key={s.label} className="card text-center">
             <div className="text-2xl font-bold" style={{ color: "var(--gold)", fontFamily: "'Playfair Display', serif" }}>

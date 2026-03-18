@@ -16,6 +16,8 @@ const navItems = [
   { href: "/stats", label: "Estadísticas", icon: "📊" },
   { href: "/calendario", label: "Calendario", icon: "📅" },
   { href: "/recordatorios", label: "Recordatorios", icon: "🔔" },
+  { href: "/pomodoro", label: "Pomodoro", icon: "🍅" },
+  { href: "/logros", label: "Logros", icon: "🏆" },
 ];
 
 export default function Sidebar() {
