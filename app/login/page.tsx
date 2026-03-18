@@ -2,10 +2,8 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [tab, setTab] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,7 +19,7 @@ export default function LoginPage() {
       setError("Email o contraseña incorrectos");
       setLoading(false);
     } else {
-      router.push("/hoy");
+      window.location.href = "/hoy";
     }
   };
 
@@ -45,7 +43,7 @@ export default function LoginPage() {
       setError("Cuenta creada, inicia sesión");
       setTab("login"); setLoading(false);
     } else {
-      router.push("/hoy");
+      window.location.href = "/hoy";
     }
   };
 
