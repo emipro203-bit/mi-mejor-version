@@ -28,6 +28,7 @@ export async function GET(req: Request) {
       client_secret: process.env.STRAVA_CLIENT_SECRET,
       code,
       grant_type: "authorization_code",
+      redirect_uri: `${base}/api/strava/callback`,
     }),
   });
 
