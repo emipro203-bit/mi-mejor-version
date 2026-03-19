@@ -8,7 +8,7 @@ import { useSession, signOut } from "next-auth/react";
 
 const navItems = [
   { href: "/hoy", label: "Dashboard del Día", icon: "☀️" },
-  { href: "/negocio", label: "Secreto Perfumista", icon: "💎" },
+  { href: "/negocio", label: "Mi Negocio", icon: "🏪" },
   { href: "/correr", label: "Running Log", icon: "🏃" },
   { href: "/sueno", label: "Sueño", icon: "🌙" },
   { href: "/metas", label: "Metas", icon: "🎯" },

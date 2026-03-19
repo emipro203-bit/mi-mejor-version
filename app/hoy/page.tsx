@@ -243,6 +243,52 @@ export default function HoyPage() {
         })}
       </div>
 
+      {/* Upcoming events */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Próximos eventos</CardTitle>
+        </CardHeader>
+        {upcomingEvents.length === 0 ? (
+          <div className="text-center py-4" style={{ color: "var(--muted)" }}>
+            <p className="text-2xl mb-1">📅</p>
+            <p className="text-sm">Sin eventos próximos</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {upcomingEvents.map(ev => {
+              const evDate = new Date(ev.date);
+              evDate.setHours(0, 0, 0, 0);
+              const now = new Date(); now.setHours(0, 0, 0, 0);
+              const diffDays = Math.round((evDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+              const typeIcon = ev.type === "reminder" ? "🔔" : ev.type === "goal" ? "🎯" : ev.type === "run" ? "🏃" : "📅";
+              const diffLabel = diffDays === 0 ? "Hoy" : diffDays === 1 ? "Mañana" : `En ${diffDays} días`;
+              return (
+                <div key={ev.id} className="flex items-center gap-3 p-2.5 rounded-xl"
+                  style={{ background: `${ev.color}10`, border: `1px solid ${ev.color}25` }}>
+                  <div className="w-10 h-10 rounded-xl flex flex-col items-center justify-center flex-shrink-0"
+                    style={{ background: `${ev.color}20` }}>
+                    <span className="text-xs font-bold leading-none" style={{ color: ev.color }}>
+                      {evDate.getDate()}
+                    </span>
+                    <span className="text-[9px] leading-none mt-0.5" style={{ color: ev.color }}>
+                      {evDate.toLocaleString("es-MX", { month: "short" })}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" style={{ color: "var(--foreground)" }}>
+                      {typeIcon} {ev.title}
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: diffDays === 0 ? "var(--gold)" : "var(--muted)" }}>
+                      {diffLabel}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+
       {/* Habits checklist */}
       <Card>
         <CardHeader>
@@ -450,52 +496,6 @@ export default function HoyPage() {
             </>
           );
         })()}
-      </Card>
-
-      {/* Upcoming events */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Próximos eventos</CardTitle>
-        </CardHeader>
-        {upcomingEvents.length === 0 ? (
-          <div className="text-center py-4" style={{ color: "var(--muted)" }}>
-            <p className="text-2xl mb-1">📅</p>
-            <p className="text-sm">Sin eventos próximos</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {upcomingEvents.map(ev => {
-              const evDate = new Date(ev.date);
-              evDate.setHours(0, 0, 0, 0);
-              const now = new Date(); now.setHours(0, 0, 0, 0);
-              const diffDays = Math.round((evDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-              const typeIcon = ev.type === "reminder" ? "🔔" : ev.type === "goal" ? "🎯" : ev.type === "run" ? "🏃" : "📅";
-              const diffLabel = diffDays === 0 ? "Hoy" : diffDays === 1 ? "Mañana" : `En ${diffDays} días`;
-              return (
-                <div key={ev.id} className="flex items-center gap-3 p-2.5 rounded-xl"
-                  style={{ background: `${ev.color}10`, border: `1px solid ${ev.color}25` }}>
-                  <div className="w-10 h-10 rounded-xl flex flex-col items-center justify-center flex-shrink-0"
-                    style={{ background: `${ev.color}20` }}>
-                    <span className="text-xs font-bold leading-none" style={{ color: ev.color }}>
-                      {evDate.getDate()}
-                    </span>
-                    <span className="text-[9px] leading-none mt-0.5" style={{ color: ev.color }}>
-                      {evDate.toLocaleString("es-MX", { month: "short" })}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: "var(--foreground)" }}>
-                      {typeIcon} {ev.title}
-                    </p>
-                    <p className="text-xs mt-0.5" style={{ color: diffDays === 0 ? "var(--gold)" : "var(--muted)" }}>
-                      {diffLabel}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </Card>
 
       {/* Quote */}
