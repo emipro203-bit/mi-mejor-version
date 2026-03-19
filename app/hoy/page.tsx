@@ -33,6 +33,9 @@ export default function HoyPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [globalStreak, setGlobalStreak] = useState(0);
+  const [waterGoalMl, setWaterGoalMl] = useState(2500);
+  const [editingWaterGoal, setEditingWaterGoal] = useState(false);
+  const [waterGoalInput, setWaterGoalInput] = useState("2500");
 
   const today = todayISO();
   const quote = getDailyQuote();
@@ -67,6 +70,9 @@ export default function HoyPage() {
       .then(r => r.json())
       .then(d => setGlobalStreak(d.streak ?? 0))
       .catch(() => null);
+    const saved = parseInt(localStorage.getItem("waterGoalMl") || "2500");
+    setWaterGoalMl(saved);
+    setWaterGoalInput(String(saved));
   }, []);
 
   const toggleHabit = async (habitId: string) => {
@@ -368,30 +374,71 @@ export default function HoyPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Hidratación</CardTitle>
-            <span className="text-sm" style={{ color: "var(--muted)" }}>
-              {waterCups * 250} / 2,500 ml
-            </span>
+            <div className="flex items-center gap-2">
+              {editingWaterGoal ? (
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    value={waterGoalInput}
+                    onChange={e => setWaterGoalInput(e.target.value)}
+                    className="w-20 px-2 py-1 rounded-lg text-xs text-center outline-none"
+                    style={{ background: "var(--surface)", border: "1px solid var(--gold)", color: "var(--foreground)" }}
+                    min={250} max={5000} step={250}
+                  />
+                  <span className="text-xs" style={{ color: "var(--muted)" }}>ml</span>
+                  <button
+                    onClick={() => {
+                      const val = Math.max(250, Math.min(5000, parseInt(waterGoalInput) || 2500));
+                      const rounded = Math.round(val / 250) * 250;
+                      setWaterGoalMl(rounded);
+                      setWaterGoalInput(String(rounded));
+                      localStorage.setItem("waterGoalMl", String(rounded));
+                      setEditingWaterGoal(false);
+                    }}
+                    className="text-xs px-2 py-1 rounded-lg"
+                    style={{ background: "rgba(201,168,76,0.2)", color: "var(--gold)" }}
+                  >✓</button>
+                  <button onClick={() => setEditingWaterGoal(false)} className="text-xs" style={{ color: "var(--muted)" }}>✕</button>
+                </div>
+              ) : (
+                <button onClick={() => setEditingWaterGoal(true)}
+                  className="text-sm flex items-center gap-1"
+                  style={{ color: "var(--muted)" }}>
+                  {waterCups * 250} / {waterGoalMl.toLocaleString()} ml
+                  <span className="text-xs opacity-50">✏️</span>
+                </button>
+              )}
+            </div>
           </div>
           <div className="progress-bar mt-3">
-            <div className="progress-bar-fill" style={{ width: `${Math.min(100, (waterCups / 10) * 100)}%` }} />
+            <div className="progress-bar-fill" style={{ width: `${Math.min(100, (waterCups * 250 / waterGoalMl) * 100)}%` }} />
           </div>
         </CardHeader>
-        <div className="grid grid-cols-5 gap-2">
-          {Array.from({ length: 10 }, (_, i) => (
-            <button key={i} onClick={() => setWater(i < waterCups ? i : i + 1)}
-              className="aspect-square rounded-xl flex items-center justify-center text-xl transition-all duration-150 active:scale-90"
-              style={{
-                background: i < waterCups ? "rgba(92, 155, 224, 0.2)" : "var(--surface)",
-                border: `1px solid ${i < waterCups ? "rgba(92, 155, 224, 0.4)" : "var(--border)"}`,
-              }}
-            >
-              💧
-            </button>
-          ))}
-        </div>
-        <p className="text-xs mt-3 text-center" style={{ color: "var(--muted)" }}>
-          {waterCups >= 10 ? "🎉 ¡Meta de hidratación alcanzada!" : `${10 - waterCups} vasos para completar la meta`}
-        </p>
+        {(() => {
+          const totalCups = Math.round(waterGoalMl / 250);
+          return (
+            <>
+              <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(totalCups, 5)}, 1fr)` }}>
+                {Array.from({ length: totalCups }, (_, i) => (
+                  <button key={i} onClick={() => setWater(i < waterCups ? i : i + 1)}
+                    className="aspect-square rounded-xl flex items-center justify-center text-xl transition-all duration-150 active:scale-90"
+                    style={{
+                      background: i < waterCups ? "rgba(92, 155, 224, 0.2)" : "var(--surface)",
+                      border: `1px solid ${i < waterCups ? "rgba(92, 155, 224, 0.4)" : "var(--border)"}`,
+                    }}
+                  >
+                    💧
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs mt-3 text-center" style={{ color: "var(--muted)" }}>
+                {waterCups >= totalCups
+                  ? "🎉 ¡Meta de hidratación alcanzada!"
+                  : `${totalCups - waterCups} vasos para completar la meta`}
+              </p>
+            </>
+          );
+        })()}
       </Card>
 
       {/* Quote */}
