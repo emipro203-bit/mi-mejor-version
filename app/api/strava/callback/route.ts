@@ -6,14 +6,17 @@ const sql = neon(process.env.DATABASE_URL!);
 
 export async function GET(req: Request) {
   const userId = await getUserId();
-  if (!userId) return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/login`);
+  const reqUrl = new URL(req.url);
+  const base = `${reqUrl.protocol}//${reqUrl.host}`;
 
-  const { searchParams } = new URL(req.url);
+  if (!userId) return NextResponse.redirect(`${base}/login`);
+
+  const { searchParams } = reqUrl;
   const code = searchParams.get("code");
   const error = searchParams.get("error");
 
   if (error || !code) {
-    return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/correr?strava=denied`);
+    return NextResponse.redirect(`${base}/correr?strava=denied`);
   }
 
   // Exchange code for tokens
@@ -29,7 +32,7 @@ export async function GET(req: Request) {
   });
 
   if (!res.ok) {
-    return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/correr?strava=error`);
+    return NextResponse.redirect(`${base}/correr?strava=error`);
   }
 
   const data = await res.json();
@@ -47,5 +50,5 @@ export async function GET(req: Request) {
           "updatedAt"    = NOW()
   `;
 
-  return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/correr?strava=connected`);
+  return NextResponse.redirect(`${base}/correr?strava=connected`);
 }
