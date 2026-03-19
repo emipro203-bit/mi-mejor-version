@@ -29,9 +29,43 @@ export default function CorrerPage() {
     date: todayISO(), distanceKm: "", durationMin: "",
     avgHr: "", zone: "", type: "Easy", notes: "",
   });
+  const [stravaConnected, setStravaConnected] = useState(false);
+  const [stravaLoading, setStravaLoading] = useState(false);
+  const [stravaMsg, setStravaMsg] = useState("");
 
   const fetchSessions = async () => { setSessions(await (await fetch("/api/run")).json()); };
-  useEffect(() => { fetchSessions(); }, []);
+
+  useEffect(() => {
+    fetchSessions();
+    fetch("/api/strava/sync").then(r => r.json()).then(d => setStravaConnected(d.connected)).catch(() => null);
+
+    // Show message from OAuth redirect
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("strava");
+    if (status === "connected") setStravaMsg("✅ Strava conectado");
+    if (status === "denied") setStravaMsg("⚠️ Conexión cancelada");
+    if (status === "error") setStravaMsg("❌ Error al conectar");
+    if (status) window.history.replaceState({}, "", "/correr");
+  }, []);
+
+  const syncStrava = async () => {
+    setStravaLoading(true); setStravaMsg("");
+    const res = await fetch("/api/strava/sync", { method: "POST" });
+    const data = await res.json();
+    if (res.ok) {
+      setStravaMsg(`✅ ${data.imported} carreras importadas, ${data.skipped} ya existían`);
+      fetchSessions();
+    } else {
+      setStravaMsg("❌ Error al sincronizar");
+    }
+    setStravaLoading(false);
+  };
+
+  const disconnectStrava = async () => {
+    await fetch("/api/strava/sync", { method: "DELETE" });
+    setStravaConnected(false);
+    setStravaMsg("Strava desconectado");
+  };
 
   const handleSave = async () => {
     if (!form.distanceKm || !form.durationMin) return;
@@ -75,6 +109,43 @@ export default function CorrerPage() {
           <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>{sessions.length} sesiones · {totalKm.toFixed(1)} km totales</p>
         </div>
         <Button onClick={() => setShowForm(!showForm)} size="sm">{showForm ? "Cancelar" : "+ Sesión"}</Button>
+      </div>
+
+      {/* Strava */}
+      <div className="p-4 rounded-xl flex items-center justify-between gap-3"
+        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">🟠</span>
+          <div>
+            <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>Strava</p>
+            <p className="text-xs" style={{ color: "var(--muted)" }}>
+              {stravaConnected ? "Conectado · importa tus carreras" : "Importa tus carreras automáticamente"}
+            </p>
+            {stravaMsg && <p className="text-xs mt-1" style={{ color: "var(--gold)" }}>{stravaMsg}</p>}
+          </div>
+        </div>
+        <div className="flex gap-2 flex-shrink-0">
+          {stravaConnected ? (
+            <>
+              <button onClick={syncStrava} disabled={stravaLoading}
+                className="px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
+                style={{ background: "rgba(252,76,2,0.15)", color: "#FC4C02", border: "1px solid rgba(252,76,2,0.3)" }}>
+                {stravaLoading ? "..." : "Sincronizar"}
+              </button>
+              <button onClick={disconnectStrava}
+                className="px-3 py-1.5 rounded-xl text-xs transition-all"
+                style={{ background: "var(--surface)", color: "var(--muted)", border: "1px solid var(--border)" }}>
+                Desconectar
+              </button>
+            </>
+          ) : (
+            <a href="/api/strava/auth"
+              className="px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
+              style={{ background: "#FC4C02", color: "#fff", textDecoration: "none" }}>
+              Conectar
+            </a>
+          )}
+        </div>
       </div>
 
       {showForm && (
