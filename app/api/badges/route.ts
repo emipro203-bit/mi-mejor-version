@@ -1,10 +1,30 @@
+import { neon } from "@neondatabase/serverless";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getUserId, unauthorized } from "@/lib/session";
 import { computeGlobalStreak } from "@/lib/streak";
 import { BADGE_DEFS } from "@/lib/badges";
 
-async function checkAndAward(userId: string) {
+const sql = neon(process.env.DATABASE_URL!);
+
+async function awardBadges(userId: string, badges: string[]) {
+  for (const badge of badges) {
+    await sql`
+      INSERT INTO "UserBadge" (id, "userId", badge, "unlockedAt")
+      VALUES (gen_random_uuid()::text, ${userId}, ${badge}, NOW())
+      ON CONFLICT ("userId", badge) DO NOTHING
+    `;
+  }
+}
+
+async function getUserBadges(userId: string) {
+  const rows = await sql`
+    SELECT badge, "unlockedAt" FROM "UserBadge" WHERE "userId" = ${userId}
+  `;
+  return rows as { badge: string; unlockedAt: string }[];
+}
+
+async function checkEarned(userId: string): Promise<string[]> {
   const [
     habitLogCount,
     habitLogs,
@@ -26,7 +46,7 @@ async function checkAndAward(userId: string) {
     prisma.runSession.aggregate({ where: { userId }, _sum: { distanceKm: true } }),
     prisma.waterLog.count({ where: { userId, cups: { gte: 10 } } }),
     prisma.sleepLog.count({ where: { userId } }),
-    prisma.tradingModule.findMany({ where: { userId }, select: { done: true } }),
+    prisma.tradingModule.findMany({ where: { userId: null }, select: { done: true } }),
     prisma.goal.count({ where: { userId } }),
   ]);
 
@@ -34,7 +54,6 @@ async function checkAndAward(userId: string) {
   const totalKm = runKm._sum.distanceKm ?? 0;
   const allModulesDone = tradingModules.length > 0 && tradingModules.every(m => m.done);
 
-  // Check perfect day: any day where all habits were completed
   const habitIds = habits.map(h => h.id);
   let perfectDay = false;
   if (habitIds.length > 0) {
@@ -47,8 +66,7 @@ async function checkAndAward(userId: string) {
     perfectDay = Object.values(byDate).some(s => habitIds.every(id => s.has(id)));
   }
 
-  const earned: string[] = [];
-  if (true) earned.push("early_adopter");
+  const earned: string[] = ["early_adopter"];
   if (habitLogCount >= 1) earned.push("habit_first");
   if (perfectDay) earned.push("habit_perfect_day");
   if (streak >= 3) earned.push("streak_3");
@@ -62,17 +80,6 @@ async function checkAndAward(userId: string) {
   if (allModulesDone) earned.push("trading_complete");
   if (goalCount >= 1) earned.push("goal_first");
 
-  // Award new badges (ignore duplicates due to unique constraint)
-  await Promise.all(
-    earned.map(badge =>
-      prisma.userBadge.upsert({
-        where: { userId_badge: { userId, badge } },
-        update: {},
-        create: { userId, badge },
-      }).catch(() => null)
-    )
-  );
-
   return earned;
 }
 
@@ -81,17 +88,16 @@ export async function GET() {
   if (!userId) return unauthorized();
 
   try {
-    // Must await checkAndAward BEFORE reading badges, otherwise the read
-    // runs before the inserts complete (race condition).
-    const earned = await checkAndAward(userId);
-
-    const [allBadges, streak] = await Promise.all([
-      prisma.userBadge.findMany({ where: { userId } }),
+    const [earned, streak] = await Promise.all([
+      checkEarned(userId),
       computeGlobalStreak(userId),
     ]);
 
+    await awardBadges(userId, earned);
+
+    const userBadges = await getUserBadges(userId);
     const unlockedMap: Record<string, string> = {};
-    for (const b of allBadges) unlockedMap[b.badge] = b.unlockedAt.toISOString();
+    for (const b of userBadges) unlockedMap[b.badge] = b.unlockedAt;
 
     const badges = BADGE_DEFS.map(def => ({
       ...def,
@@ -106,7 +112,6 @@ export async function GET() {
   }
 }
 
-// POST: award pomodoro badges from client-side count
 export async function POST(req: Request) {
   const userId = await getUserId();
   if (!userId) return unauthorized();
@@ -116,15 +121,6 @@ export async function POST(req: Request) {
   if (pomodoroTotal >= 10) toAward.push("pomodoro_10");
   if (pomodoroTotal >= 50) toAward.push("pomodoro_50");
 
-  await Promise.all(
-    toAward.map(badge =>
-      prisma.userBadge.upsert({
-        where: { userId_badge: { userId, badge } },
-        update: {},
-        create: { userId, badge },
-      }).catch(() => null)
-    )
-  );
-
+  await awardBadges(userId, toAward);
   return NextResponse.json({ ok: true });
 }

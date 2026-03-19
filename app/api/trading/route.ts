@@ -3,12 +3,12 @@ import { NextResponse } from "next/server";
 import { getUserId, unauthorized } from "@/lib/session";
 import { MODULE_CONTENT } from "@/lib/trading-resources";
 
-async function ensureUserModules(userId: string) {
-  const existing = await prisma.tradingModule.count({ where: { userId } });
+async function ensureModules() {
+  const existing = await prisma.tradingModule.count({ where: { userId: null } });
   if (existing === 0) {
     await prisma.tradingModule.createMany({
       data: Object.values(MODULE_CONTENT).map(m => ({
-        userId,
+        userId: null,
         number: m.number,
         name: m.name,
         done: false,
@@ -21,10 +21,10 @@ export async function GET() {
   const userId = await getUserId();
   if (!userId) return unauthorized();
 
-  await ensureUserModules(userId);
+  await ensureModules();
 
   const [modules, notes] = await Promise.all([
-    prisma.tradingModule.findMany({ where: { userId }, orderBy: { number: "asc" } }),
+    prisma.tradingModule.findMany({ where: { userId: null }, orderBy: { number: "asc" } }),
     prisma.tradingNote.findMany({ where: { userId }, orderBy: { createdAt: "desc" } }),
   ]);
   return NextResponse.json({ modules, notes });
