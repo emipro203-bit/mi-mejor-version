@@ -11,6 +11,7 @@ import { es } from "date-fns/locale";
 interface CalEvent { id: string; title: string; date: string; color: string; type: string; done: boolean; }
 interface HabitLog { date: string; done: boolean; }
 interface Habit { id: string; logs: HabitLog[]; }
+interface RunSession { id: string; date: string; distanceKm: number; durationMin: number; type: string; }
 
 const EVENT_COLORS = ["#C9A84C", "#5C9BE0", "#4CAF7D", "#E05C5C", "#E0945C", "#9B59B6"];
 
@@ -18,6 +19,7 @@ export default function CalendarioPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [habits, setHabits] = useState<Habit[]>([]);
+  const [runs, setRuns] = useState<RunSession[]>([]);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title: "", date: "", color: "#C9A84C", type: "event" });
@@ -26,12 +28,14 @@ export default function CalendarioPage() {
   const monthKey = format(currentMonth, "yyyy-MM");
 
   const fetchData = useCallback(async () => {
-    const [evRes, habRes] = await Promise.all([
+    const [evRes, habRes, runRes] = await Promise.all([
       fetch(`/api/events?month=${monthKey}`),
       fetch("/api/habits"),
+      fetch("/api/run"),
     ]);
     setEvents(evRes.ok ? await evRes.json() : []);
     setHabits(habRes.ok ? await habRes.json() : []);
+    setRuns(runRes.ok ? await runRes.json() : []);
   }, [monthKey]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -57,6 +61,9 @@ export default function CalendarioPage() {
   const eventsForDay = (day: Date) =>
     events.filter(e => isSameDay(new Date(e.date), day));
 
+  const runsForDay = (day: Date) =>
+    runs.filter(r => isSameDay(new Date(r.date), day));
+
   const saveEvent = async () => {
     if (!form.title || !form.date) return;
     setSaving(true);
@@ -77,6 +84,7 @@ export default function CalendarioPage() {
   };
 
   const selectedEvents = selectedDay ? eventsForDay(selectedDay) : [];
+  const selectedRuns = selectedDay ? runsForDay(selectedDay) : [];
   const selectedHabitPct = selectedDay ? habitPctByDay(selectedDay) : 0;
 
   return (
@@ -186,6 +194,7 @@ export default function CalendarioPage() {
             const today = isToday(day);
             const selected = selectedDay && isSameDay(day, selectedDay);
             const dayEvents = eventsForDay(day);
+            const dayRuns = inMonth ? runsForDay(day) : [];
             const habitPct = inMonth ? habitPctByDay(day) : 0;
 
             return (
@@ -210,6 +219,11 @@ export default function CalendarioPage() {
                       background: habitPct === 1 ? "#4CAF7D" : "var(--gold)",
                     }} />
                   </div>
+                )}
+
+                {/* Run indicator */}
+                {dayRuns.length > 0 && (
+                  <span className="text-[9px] leading-none mt-0.5">🏃</span>
                 )}
 
                 {/* Event dots */}
@@ -243,26 +257,47 @@ export default function CalendarioPage() {
             )}
           </div>
 
-          {selectedEvents.length > 0 ? (
-            <div className="space-y-2">
-              {selectedEvents.map(ev => (
-                <div key={ev.id} className="flex items-center gap-3 p-2.5 rounded-xl"
-                  style={{ background: `${ev.color}12`, border: `1px solid ${ev.color}30` }}>
-                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: ev.color }} />
-                  <span className="flex-1 text-sm" style={{ color: "var(--foreground)" }}>{ev.title}</span>
-                  <button onClick={() => deleteEvent(ev.id)} className="text-xs opacity-40 hover:opacity-100" style={{ color: "var(--error)" }}>✕</button>
+          <div className="space-y-2">
+            {/* Runs */}
+            {selectedRuns.map(run => (
+              <div key={run.id} className="flex items-center gap-3 p-2.5 rounded-xl"
+                style={{ background: "rgba(252,76,2,0.08)", border: "1px solid rgba(252,76,2,0.2)" }}>
+                <span className="text-base">🏃</span>
+                <div className="flex-1">
+                  <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
+                    {run.type} · {run.distanceKm} km
+                  </p>
+                  <p className="text-xs" style={{ color: "var(--muted)" }}>
+                    {Math.floor(run.durationMin)}m {Math.round((run.durationMin % 1) * 60)}s
+                    {run.distanceKm > 0 ? ` · ${(run.durationMin / run.distanceKm).toFixed(1)} min/km` : ""}
+                  </p>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-4" style={{ color: "var(--muted)" }}>
-              <p className="text-sm">Sin eventos</p>
-              <button onClick={() => { setForm(f => ({ ...f, date: format(selectedDay, "yyyy-MM-dd") })); setShowForm(true); }}
-                className="text-xs mt-1" style={{ color: "var(--gold)" }}>
-                + Agregar evento
-              </button>
-            </div>
-          )}
+                <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(252,76,2,0.15)", color: "#FC4C02" }}>
+                  Strava
+                </span>
+              </div>
+            ))}
+
+            {/* Events */}
+            {selectedEvents.map(ev => (
+              <div key={ev.id} className="flex items-center gap-3 p-2.5 rounded-xl"
+                style={{ background: `${ev.color}12`, border: `1px solid ${ev.color}30` }}>
+                <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: ev.color }} />
+                <span className="flex-1 text-sm" style={{ color: "var(--foreground)" }}>{ev.title}</span>
+                <button onClick={() => deleteEvent(ev.id)} className="text-xs opacity-40 hover:opacity-100" style={{ color: "var(--error)" }}>✕</button>
+              </div>
+            ))}
+
+            {selectedRuns.length === 0 && selectedEvents.length === 0 && (
+              <div className="text-center py-4" style={{ color: "var(--muted)" }}>
+                <p className="text-sm">Sin eventos</p>
+                <button onClick={() => { setForm(f => ({ ...f, date: format(selectedDay, "yyyy-MM-dd") })); setShowForm(true); }}
+                  className="text-xs mt-1" style={{ color: "var(--gold)" }}>
+                  + Agregar evento
+                </button>
+              </div>
+            )}
+          </div>
         </Card>
       )}
 
