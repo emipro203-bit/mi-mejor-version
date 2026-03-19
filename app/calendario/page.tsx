@@ -185,14 +185,14 @@ export default function CalendarioPage() {
         </div>
 
         {/* Day headers */}
-        <div className="grid grid-cols-7 mb-1">
+        <div className="grid grid-cols-7 mb-2">
           {["L", "M", "X", "J", "V", "S", "D"].map(d => (
-            <div key={d} className="text-center text-xs font-medium py-1" style={{ color: "var(--muted)" }}>{d}</div>
+            <div key={d} className="text-center text-sm font-medium py-1" style={{ color: "var(--muted)" }}>{d}</div>
           ))}
         </div>
 
         {/* Days */}
-        <div className="grid grid-cols-7 gap-0.5">
+        <div className="grid grid-cols-7 gap-1">
           {days.map(day => {
             const inMonth = isSameMonth(day, currentMonth);
             const today = isToday(day);
@@ -203,7 +203,7 @@ export default function CalendarioPage() {
 
             return (
               <button key={day.toISOString()} onClick={() => setSelectedDay(isSameDay(day, selectedDay ?? new Date("1900")) ? null : day)}
-                className="relative flex flex-col items-center p-1 rounded-xl transition-all min-h-[44px]"
+                className="relative flex flex-col items-center p-2 rounded-xl transition-all min-h-[56px]"
                 style={{
                   opacity: inMonth ? 1 : 0.25,
                   background: selected ? "rgba(201,168,76,0.15)" : today ? "rgba(201,168,76,0.06)" : "transparent",
@@ -211,13 +211,13 @@ export default function CalendarioPage() {
                 }}
               >
                 {/* Day number */}
-                <span className="text-xs font-medium" style={{ color: today ? "var(--gold)" : "var(--foreground)" }}>
+                <span className="text-sm font-semibold" style={{ color: today ? "var(--gold)" : "var(--foreground)" }}>
                   {format(day, "d")}
                 </span>
 
                 {/* Habit bar */}
                 {inMonth && habitPct > 0 && (
-                  <div className="w-full mt-0.5 rounded-full overflow-hidden" style={{ height: 3, background: "var(--border)" }}>
+                  <div className="w-full mt-1 rounded-full overflow-hidden" style={{ height: 3, background: "var(--border)" }}>
                     <div className="h-full rounded-full" style={{
                       width: `${habitPct * 100}%`,
                       background: habitPct === 1 ? "#4CAF7D" : "var(--gold)",
@@ -227,14 +227,14 @@ export default function CalendarioPage() {
 
                 {/* Run indicator */}
                 {dayRuns.length > 0 && (
-                  <span className="text-[9px] leading-none mt-0.5">🏃</span>
+                  <span className="text-xs leading-none mt-0.5">🏃</span>
                 )}
 
                 {/* Event dots */}
                 {dayEvents.length > 0 && (
                   <div className="flex gap-0.5 mt-0.5 flex-wrap justify-center">
                     {dayEvents.slice(0, 3).map(ev => (
-                      <div key={ev.id} className="w-1.5 h-1.5 rounded-full" style={{ background: ev.color }} />
+                      <div key={ev.id} className="w-2 h-2 rounded-full" style={{ background: ev.color }} />
                     ))}
                   </div>
                 )}
