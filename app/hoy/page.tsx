@@ -453,11 +453,16 @@ export default function HoyPage() {
       </Card>
 
       {/* Upcoming events */}
-      {upcomingEvents.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Próximos eventos</CardTitle>
-          </CardHeader>
+      <Card>
+        <CardHeader>
+          <CardTitle>Próximos eventos</CardTitle>
+        </CardHeader>
+        {upcomingEvents.length === 0 ? (
+          <div className="text-center py-4" style={{ color: "var(--muted)" }}>
+            <p className="text-2xl mb-1">📅</p>
+            <p className="text-sm">Sin eventos próximos</p>
+          </div>
+        ) : (
           <div className="space-y-2">
             {upcomingEvents.map(ev => {
               const evDate = new Date(ev.date);
@@ -490,8 +495,8 @@ export default function HoyPage() {
               );
             })}
           </div>
-        </Card>
-      )}
+        )}
+      </Card>
 
       {/* Quote */}
       <div className="p-4 rounded-xl" style={{
