@@ -28,14 +28,18 @@ export default function CalendarioPage() {
   const monthKey = format(currentMonth, "yyyy-MM");
 
   const fetchData = useCallback(async () => {
-    const [evRes, habRes, runRes] = await Promise.all([
-      fetch(`/api/events?month=${monthKey}`),
-      fetch("/api/habits"),
-      fetch("/api/run"),
-    ]);
-    setEvents(evRes.ok ? await evRes.json() : []);
-    setHabits(habRes.ok ? await habRes.json() : []);
-    setRuns(runRes.ok ? await runRes.json() : []);
+    try {
+      const [evRes, habRes, runRes] = await Promise.all([
+        fetch(`/api/events?month=${monthKey}`),
+        fetch("/api/habits"),
+        fetch("/api/run"),
+      ]);
+      if (evRes.ok) setEvents(await evRes.json());
+      if (habRes.ok) setHabits(await habRes.json());
+      if (runRes.ok) setRuns(await runRes.json());
+    } catch (e) {
+      console.error("Calendar fetchData error:", e);
+    }
   }, [monthKey]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -291,8 +295,11 @@ export default function CalendarioPage() {
             {selectedRuns.length === 0 && selectedEvents.length === 0 && (
               <div className="text-center py-4" style={{ color: "var(--muted)" }}>
                 <p className="text-sm">Sin eventos</p>
-                <button onClick={() => { setForm(f => ({ ...f, date: format(selectedDay, "yyyy-MM-dd") })); setShowForm(true); }}
-                  className="text-xs mt-1" style={{ color: "var(--gold)" }}>
+                <button onClick={() => {
+                  if (!selectedDay) return;
+                  setForm(f => ({ ...f, date: format(selectedDay, "yyyy-MM-dd") }));
+                  setShowForm(true);
+                }} className="text-xs mt-1" style={{ color: "var(--gold)" }}>
                   + Agregar evento
                 </button>
               </div>
