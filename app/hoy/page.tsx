@@ -36,6 +36,7 @@ export default function HoyPage() {
   const [waterGoalMl, setWaterGoalMl] = useState(2500);
   const [editingWaterGoal, setEditingWaterGoal] = useState(false);
   const [waterGoalInput, setWaterGoalInput] = useState("2500");
+  const [upcomingEvents, setUpcomingEvents] = useState<{ id: string; title: string; date: string; color: string; type: string }[]>([]);
 
   const today = todayISO();
   const quote = getDailyQuote();
@@ -73,6 +74,16 @@ export default function HoyPage() {
     const saved = parseInt(localStorage.getItem("waterGoalMl") || "2500");
     setWaterGoalMl(saved);
     setWaterGoalInput(String(saved));
+
+    // Fetch upcoming events (next 30 days)
+    fetch("/api/events").then(r => r.ok ? r.json() : []).then((all: { id: string; title: string; date: string; color: string; type: string }[]) => {
+      const now = new Date(); now.setHours(0, 0, 0, 0);
+      const upcoming = all
+        .filter(e => new Date(e.date) >= now)
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        .slice(0, 5);
+      setUpcomingEvents(upcoming);
+    }).catch(() => null);
   }, []);
 
   const toggleHabit = async (habitId: string) => {
@@ -440,6 +451,47 @@ export default function HoyPage() {
           );
         })()}
       </Card>
+
+      {/* Upcoming events */}
+      {upcomingEvents.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Próximos eventos</CardTitle>
+          </CardHeader>
+          <div className="space-y-2">
+            {upcomingEvents.map(ev => {
+              const evDate = new Date(ev.date);
+              evDate.setHours(0, 0, 0, 0);
+              const now = new Date(); now.setHours(0, 0, 0, 0);
+              const diffDays = Math.round((evDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+              const typeIcon = ev.type === "reminder" ? "🔔" : ev.type === "goal" ? "🎯" : ev.type === "run" ? "🏃" : "📅";
+              const diffLabel = diffDays === 0 ? "Hoy" : diffDays === 1 ? "Mañana" : `En ${diffDays} días`;
+              return (
+                <div key={ev.id} className="flex items-center gap-3 p-2.5 rounded-xl"
+                  style={{ background: `${ev.color}10`, border: `1px solid ${ev.color}25` }}>
+                  <div className="w-10 h-10 rounded-xl flex flex-col items-center justify-center flex-shrink-0"
+                    style={{ background: `${ev.color}20` }}>
+                    <span className="text-xs font-bold leading-none" style={{ color: ev.color }}>
+                      {evDate.getDate()}
+                    </span>
+                    <span className="text-[9px] leading-none mt-0.5" style={{ color: ev.color }}>
+                      {evDate.toLocaleString("es-MX", { month: "short" })}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" style={{ color: "var(--foreground)" }}>
+                      {typeIcon} {ev.title}
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: diffDays === 0 ? "var(--gold)" : "var(--muted)" }}>
+                      {diffLabel}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       {/* Quote */}
       <div className="p-4 rounded-xl" style={{
