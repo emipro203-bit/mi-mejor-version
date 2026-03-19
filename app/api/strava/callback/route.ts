@@ -33,7 +33,9 @@ export async function GET(req: Request) {
   });
 
   if (!res.ok) {
-    return NextResponse.redirect(`${base}/correr?strava=error`);
+    const errBody = await res.text();
+    console.error("Strava token error:", res.status, errBody);
+    return NextResponse.redirect(`${base}/correr?strava=error&msg=${encodeURIComponent(errBody.slice(0, 200))}`);
   }
 
   const data = await res.json();

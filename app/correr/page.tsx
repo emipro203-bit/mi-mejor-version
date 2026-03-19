@@ -44,7 +44,10 @@ export default function CorrerPage() {
     const status = params.get("strava");
     if (status === "connected") setStravaMsg("✅ Strava conectado");
     if (status === "denied") setStravaMsg("⚠️ Conexión cancelada");
-    if (status === "error") setStravaMsg("❌ Error al conectar");
+    if (status === "error") {
+      const msg = params.get("msg") || "";
+      setStravaMsg(`❌ Error: ${msg}`);
+    }
     if (status) window.history.replaceState({}, "", "/correr");
   }, []);
 
