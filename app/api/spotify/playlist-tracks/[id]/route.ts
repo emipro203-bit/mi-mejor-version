@@ -40,6 +40,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   }
 
   const data = JSON.parse(body);
+  return NextResponse.json({ keys: Object.keys(data), itemsType: typeof data.items, itemsIsArray: Array.isArray(data.items), itemsLength: Array.isArray(data.items) ? data.items.length : null, firstItemKeys: Array.isArray(data.items) && data.items[0] ? Object.keys(data.items[0]) : null });
   const items = data.items ?? [];
   const tracks = items
     .filter((i: { track: unknown }) => i?.track)
