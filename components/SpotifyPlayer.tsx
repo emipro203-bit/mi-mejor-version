@@ -67,11 +67,20 @@ async function transferPlayback(deviceId: string, token: string) {
   });
 }
 
+function SpotifyIcon({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="white">
+      <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+    </svg>
+  );
+}
+
 export default function SpotifyPlayer() {
   const [token, setToken] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [track, setTrack] = useState<TrackState | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
   const [showPlaylists, setShowPlaylists] = useState(false);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [loadingPlaylists, setLoadingPlaylists] = useState(false);
@@ -91,7 +100,6 @@ export default function SpotifyPlayer() {
     fetchToken().then((t) => { if (t) { tokenRef.current = t; cb(t); } });
   }, []);
 
-  // Init SDK
   useEffect(() => {
     if (!token) return;
 
@@ -178,9 +186,6 @@ export default function SpotifyPlayer() {
           total: p.tracks?.total ?? p.items?.total ?? 0,
           image: p.images?.[0]?.url ?? "",
         })));
-      } else {
-        const err = await res.json();
-        console.error("Spotify playlists error:", err);
       }
     } catch (e) {
       console.error("openPlaylists error:", e);
@@ -209,142 +214,151 @@ export default function SpotifyPlayer() {
     setSelectedPlaylist(null);
   };
 
-  if (!token) {
-    return (
-      <div className="spotify-bar" style={{ padding: "10px 16px" }}>
-        <a href="/api/spotify/auth" className="flex items-center gap-2 text-sm" style={{ color: "var(--muted)" }}>
-          <span style={{ color: "#1DB954", fontSize: 18 }}>♫</span>
-          Conectar Spotify
-        </a>
-      </div>
-    );
-  }
-
   const progress = track && track.duration > 0 ? (track.position / track.duration) * 100 : 0;
   const fmt = (ms: number) => {
     const s = Math.floor(ms / 1000);
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   };
 
+  // Not connected — show connect FAB
+  if (!token) {
+    return (
+      <a href="/api/spotify/auth" className="spotify-fab" title="Conectar Spotify"
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}>
+        <SpotifyIcon size={22} />
+      </a>
+    );
+  }
+
   return (
     <>
-      {/* Playlist / Tracks panel */}
-      {showPlaylists && (
-        <div className="spotify-panel">
-          <div className="flex items-center gap-2" style={{ padding: "8px 12px", borderBottom: "1px solid var(--border)" }}>
-            {selectedPlaylist && (
-              <button onClick={() => setSelectedPlaylist(null)} style={{ color: "var(--muted)", fontSize: 14, lineHeight: 1 }}>←</button>
+      {/* Expanded popup */}
+      {isOpen && (
+        <div className="spotify-popup">
+          {/* Playlist / Tracks panel */}
+          {showPlaylists && (
+            <div style={{ borderBottom: "1px solid var(--border)" }}>
+              <div className="flex items-center gap-2" style={{ padding: "8px 12px", borderBottom: "1px solid var(--border)" }}>
+                {selectedPlaylist && (
+                  <button onClick={() => setSelectedPlaylist(null)}
+                    style={{ color: "var(--muted)", fontSize: 16, lineHeight: 1, flexShrink: 0 }}>←</button>
+                )}
+                <span className="text-xs font-medium truncate" style={{ color: "var(--muted)" }}>
+                  {selectedPlaylist ? selectedPlaylist.name : "Tus playlists"}
+                </span>
+                <button onClick={() => { setShowPlaylists(false); setSelectedPlaylist(null); }}
+                  style={{ marginLeft: "auto", color: "var(--muted)", fontSize: 14, flexShrink: 0 }}>✕</button>
+              </div>
+              <div style={{ overflowY: "auto", maxHeight: 220 }}>
+                {!selectedPlaylist ? (
+                  loadingPlaylists ? (
+                    <div className="text-xs text-center py-4" style={{ color: "var(--muted)" }}>Cargando...</div>
+                  ) : playlists.length === 0 ? (
+                    <div className="text-xs text-center py-4" style={{ color: "var(--muted)" }}>No se encontraron playlists</div>
+                  ) : playlists.map((pl) => (
+                    <button key={pl.id} onClick={() => openPlaylist(pl)}
+                      className="flex items-center gap-3 w-full text-left transition-opacity hover:opacity-80"
+                      style={{ padding: "7px 12px", borderBottom: "1px solid var(--border)" }}>
+                      {pl.image
+                        ? <img src={pl.image} alt="" width={32} height={32} style={{ borderRadius: 4, flexShrink: 0 }} />
+                        : <div style={{ width: 32, height: 32, borderRadius: 4, background: "var(--border)", flexShrink: 0 }} />
+                      }
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium truncate" style={{ color: "var(--foreground)" }}>{pl.name}</div>
+                        <div className="text-[10px]" style={{ color: "var(--muted)" }}>{pl.total} canciones</div>
+                      </div>
+                      <span style={{ color: "var(--muted)", fontSize: 12 }}>›</span>
+                    </button>
+                  ))
+                ) : (
+                  loadingTracks ? (
+                    <div className="text-xs text-center py-4" style={{ color: "var(--muted)" }}>Cargando...</div>
+                  ) : tracks.map((t, i) => (
+                    <button key={t.id} onClick={() => playTrack(t.uri, selectedPlaylist.uri)}
+                      className="flex items-center gap-3 w-full text-left transition-opacity hover:opacity-80"
+                      style={{ padding: "6px 12px", borderBottom: "1px solid var(--border)" }}>
+                      <span className="text-[10px] flex-shrink-0 w-5 text-right" style={{ color: "var(--muted)" }}>{i + 1}</span>
+                      {t.image
+                        ? <img src={t.image} alt="" width={28} height={28} style={{ borderRadius: 3, flexShrink: 0 }} />
+                        : <div style={{ width: 28, height: 28, borderRadius: 3, background: "var(--border)", flexShrink: 0 }} />
+                      }
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium truncate" style={{ color: "var(--foreground)" }}>{t.name}</div>
+                        <div className="text-[10px] truncate" style={{ color: "var(--muted)" }}>{t.artist}</div>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Player controls */}
+          <div>
+            {track && (
+              <div style={{ height: 2, background: "var(--border)" }}>
+                <div style={{ height: "100%", width: `${progress}%`, background: "#1DB954", transition: "width 1s linear" }} />
+              </div>
             )}
-            <span className="text-xs font-medium truncate" style={{ color: "var(--muted)" }}>
-              {selectedPlaylist ? selectedPlaylist.name : "Tus playlists"}
-            </span>
-          </div>
-          <div style={{ overflowY: "auto", maxHeight: 280 }}>
-            {!selectedPlaylist ? (
-              loadingPlaylists ? (
-                <div className="text-xs text-center py-6" style={{ color: "var(--muted)" }}>Cargando...</div>
-              ) : playlists.length === 0 ? (
-                <div className="text-xs text-center py-6" style={{ color: "var(--muted)" }}>No se encontraron playlists</div>
-              ) : playlists.map((pl) => (
-                <button key={pl.id} onClick={() => openPlaylist(pl)}
-                  className="flex items-center gap-3 w-full text-left transition-opacity hover:opacity-80"
-                  style={{ padding: "8px 12px", borderBottom: "1px solid var(--border)" }}>
-                  {pl.image
-                    ? <img src={pl.image} alt="" width={36} height={36} style={{ borderRadius: 4, flexShrink: 0 }} />
-                    : <div style={{ width: 36, height: 36, borderRadius: 4, background: "var(--border)", flexShrink: 0 }} />
-                  }
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-medium truncate" style={{ color: "var(--foreground)" }}>{pl.name}</div>
-                    <div className="text-[10px]" style={{ color: "var(--muted)" }}>{pl.total} canciones</div>
+            <div className="flex items-center gap-3" style={{ padding: "10px 12px" }}>
+              {track?.albumArt ? (
+                <img src={track.albumArt} alt="" width={40} height={40} style={{ borderRadius: 6, flexShrink: 0 }} />
+              ) : (
+                <div style={{ width: 40, height: 40, borderRadius: 6, background: "var(--surface-2)", border: "1px solid var(--border)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <SpotifyIcon size={18} />
+                </div>
+              )}
+
+              <div className="flex-1 min-w-0">
+                {track ? (
+                  <>
+                    <div className="text-xs font-semibold truncate" style={{ color: "var(--foreground)" }}>{track.name}</div>
+                    <div className="text-[10px] truncate" style={{ color: "var(--muted)" }}>{track.artist}</div>
+                    <div className="text-[10px] mt-0.5" style={{ color: "var(--muted)" }}>
+                      {fmt(track.position)} / {fmt(track.duration)}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-xs" style={{ color: "var(--muted)" }}>
+                    {ready ? "Elige una playlist →" : "Conectando..."}
                   </div>
-                  <span style={{ color: "var(--muted)", fontSize: 12 }}>›</span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <button onClick={openPlaylists} title="Playlists"
+                  className="p-1.5 rounded-lg transition-opacity hover:opacity-100"
+                  style={{ color: showPlaylists ? "#1DB954" : "var(--muted)", fontSize: 15 }}>
+                  ☰
                 </button>
-              ))
-            ) : (
-              loadingTracks ? (
-                <div className="text-xs text-center py-6" style={{ color: "var(--muted)" }}>Cargando canciones...</div>
-              ) : tracks.map((t, i) => (
-                <button key={t.id} onClick={() => playTrack(t.uri, selectedPlaylist.uri)}
-                  className="flex items-center gap-3 w-full text-left transition-opacity hover:opacity-80"
-                  style={{ padding: "7px 12px", borderBottom: "1px solid var(--border)" }}>
-                  <span className="text-[10px] flex-shrink-0 w-5 text-right" style={{ color: "var(--muted)" }}>{i + 1}</span>
-                  {t.image
-                    ? <img src={t.image} alt="" width={32} height={32} style={{ borderRadius: 3, flexShrink: 0 }} />
-                    : <div style={{ width: 32, height: 32, borderRadius: 3, background: "var(--border)", flexShrink: 0 }} />
-                  }
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-medium truncate" style={{ color: "var(--foreground)" }}>{t.name}</div>
-                    <div className="text-[10px] truncate" style={{ color: "var(--muted)" }}>{t.artist}</div>
-                  </div>
+                <button onClick={() => playerRef.current?.previousTrack()}
+                  className="p-1.5 rounded-lg transition-opacity hover:opacity-100 opacity-60"
+                  style={{ color: "var(--foreground)" }}>⏮</button>
+                <button onClick={() => playerRef.current?.togglePlay()}
+                  className="p-1.5 rounded-full flex items-center justify-center"
+                  style={{ background: "#1DB954", color: "#000", width: 30, height: 30, fontSize: 12, flexShrink: 0 }}>
+                  {track?.paused !== false ? "▶" : "⏸"}
                 </button>
-              ))
-            )}
+                <button onClick={() => playerRef.current?.nextTrack()}
+                  className="p-1.5 rounded-lg transition-opacity hover:opacity-100 opacity-60"
+                  style={{ color: "var(--foreground)" }}>⏭</button>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Player bar */}
-      <div className="spotify-bar">
-        {track && (
-          <div style={{ height: 2, background: "var(--border)" }}>
-            <div style={{ height: "100%", width: `${progress}%`, background: "#1DB954", transition: "width 1s linear" }} />
-          </div>
+      {/* Floating action button */}
+      <button onClick={() => setIsOpen(!isOpen)} className="spotify-fab" title="Spotify"
+        style={{ border: "none", cursor: "pointer", position: "relative" }}>
+        <SpotifyIcon size={22} />
+        {track && !track.paused && (
+          <span style={{
+            position: "absolute", top: 2, right: 2, width: 8, height: 8,
+            borderRadius: "50%", background: "#fff", border: "1.5px solid #1DB954",
+          }} />
         )}
-        <div className="flex items-center gap-3" style={{ padding: "8px 12px" }}>
-          {/* Album art or idle state */}
-          {track?.albumArt ? (
-            <img src={track.albumArt} alt="" width={36} height={36} style={{ borderRadius: 4, flexShrink: 0 }} />
-          ) : (
-            <div style={{ width: 36, height: 36, borderRadius: 4, background: "var(--surface)", border: "1px solid var(--border)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ color: "#1DB954", fontSize: 16 }}>♫</span>
-            </div>
-          )}
-
-          {/* Track info */}
-          <div className="flex-1 min-w-0">
-            {track ? (
-              <>
-                <div className="text-xs font-medium truncate" style={{ color: "var(--foreground)" }}>{track.name}</div>
-                <div className="text-[10px] truncate" style={{ color: "var(--muted)" }}>{track.artist}</div>
-              </>
-            ) : (
-              <div className="text-xs" style={{ color: "var(--muted)" }}>
-                {ready ? "Elige una playlist →" : "Conectando..."}
-              </div>
-            )}
-          </div>
-
-          {/* Time */}
-          {track && (
-            <div className="text-[10px] flex-shrink-0 hidden sm:block" style={{ color: "var(--muted)" }}>
-              {fmt(track.position)} / {fmt(track.duration)}
-            </div>
-          )}
-
-          {/* Playlist button */}
-          <button onClick={openPlaylists}
-            className="p-1.5 rounded-lg transition-opacity hover:opacity-100"
-            style={{ color: showPlaylists ? "#1DB954" : "var(--muted)", fontSize: 16 }}
-            title="Playlists">
-            ☰
-          </button>
-
-          {/* Controls */}
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <button onClick={() => playerRef.current?.previousTrack()}
-              className="p-1.5 rounded-lg transition-opacity hover:opacity-100 opacity-60"
-              style={{ color: "var(--foreground)" }}>⏮</button>
-            <button onClick={() => playerRef.current?.togglePlay()}
-              className="p-1.5 rounded-full flex items-center justify-center"
-              style={{ background: "#1DB954", color: "#000", width: 28, height: 28, fontSize: 12 }}>
-              {track?.paused !== false ? "▶" : "⏸"}
-            </button>
-            <button onClick={() => playerRef.current?.nextTrack()}
-              className="p-1.5 rounded-lg transition-opacity hover:opacity-100 opacity-60"
-              style={{ color: "var(--foreground)" }}>⏭</button>
-          </div>
-        </div>
-      </div>
+      </button>
     </>
   );
 }

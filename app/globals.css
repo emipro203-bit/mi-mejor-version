@@ -76,38 +76,51 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; }
   transition: width 0.5s ease;
 }
 
-/* Spotify player bar */
-.spotify-bar {
+/* Spotify floating button */
+.spotify-fab {
   position: fixed;
-  bottom: 56px; /* above BottomNav on mobile */
-  left: 0;
-  right: 0;
-  z-index: 49;
+  bottom: 72px; /* above BottomNav on mobile */
+  left: 16px;
+  z-index: 50;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: #1DB954;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(29, 185, 84, 0.45);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.spotify-fab:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 22px rgba(29, 185, 84, 0.55);
+}
+
+/* Spotify expanded popup */
+.spotify-popup {
+  position: fixed;
+  bottom: 130px; /* above FAB + bottom nav */
+  left: 8px;
+  right: 8px;
+  z-index: 50;
   background: var(--surface);
-  border-top: 1px solid var(--border);
-  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
 }
 
 @media (min-width: 768px) {
-  .spotify-bar {
-    bottom: 0;
-    left: 256px;
-    right: 0;
+  .spotify-fab {
+    bottom: 20px;
+    left: 276px;
   }
-  .spotify-panel {
-    bottom: 56px;
-    left: 256px;
-    right: 0;
+  .spotify-popup {
+    bottom: 78px;
+    left: 268px;
+    right: auto;
+    width: 360px;
   }
-}
-
-/* Spotify playlist panel */
-.spotify-panel {
-  position: fixed;
-  bottom: 112px; /* above player + bottom nav on mobile */
-  left: 0;
-  right: 0;
-  z-index: 48;
-  background: var(--surface);
-  border-top: 1px solid var(--border);
 }

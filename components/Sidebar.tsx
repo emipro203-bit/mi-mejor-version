@@ -18,6 +18,7 @@ const navItems = [
   { href: "/recordatorios", label: "Recordatorios", icon: "🔔" },
   { href: "/pomodoro", label: "Pomodoro", icon: "🍅" },
   { href: "/logros", label: "Logros", icon: "🏆" },
+  { href: "/cuenta", label: "Mi Cuenta", icon: "👤" },
 ];
 
 export default function Sidebar() {

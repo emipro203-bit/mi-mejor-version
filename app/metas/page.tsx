@@ -99,7 +99,7 @@ export default function MetasPage() {
                 ))}
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Input label="Valor actual" type="number" step="any" placeholder="0" value={form.currentValue} onChange={e => setForm({ ...form, currentValue: e.target.value })} />
               <Input label="Valor objetivo" type="number" step="any" placeholder="100" value={form.targetValue} onChange={e => setForm({ ...form, targetValue: e.target.value })} />
               <Input label="Unidad" placeholder="km, MXN..." value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} />
