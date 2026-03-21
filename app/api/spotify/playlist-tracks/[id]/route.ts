@@ -31,7 +31,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const token = await getFreshToken(userId);
   if (!token) return NextResponse.json({ error: "no_token" }, { status: 401 });
 
-  const url = `https://api.spotify.com/v1/playlists/${id}?market=from_token`;
+  const url = `https://api.spotify.com/v1/playlists/${id}/items?limit=50&market=from_token`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   const body = await res.text();
 
@@ -40,7 +40,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   }
 
   const data = JSON.parse(body);
-  const items = data.items ?? data.tracks?.items ?? [];
+  const items = data.items ?? [];
   const tracks = items
     .filter((i: { track: unknown }) => i?.track)
     .map((i: { track: { id: string; name: string; uri: string; duration_ms: number; artists: { name: string }[]; album: { images: { url: string }[] } } }) => ({
