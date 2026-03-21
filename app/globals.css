@@ -59,8 +59,14 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; }
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 16px;
-  padding: 20px;
+  padding: 14px;
   transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+@media (min-width: 480px) {
+  .card {
+    padding: 20px;
+  }
 }
 
 .progress-bar {
@@ -78,10 +84,11 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; }
 
 /* Spotify floating button */
 .spotify-fab {
-  position: fixed;
+  position: fixed !important;
   bottom: 72px; /* above BottomNav on mobile */
-  left: 16px;
-  z-index: 50;
+  right: 16px;
+  left: auto;
+  z-index: 55;
   width: 46px;
   height: 46px;
   border-radius: 50%;
@@ -100,11 +107,11 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; }
 
 /* Spotify expanded popup */
 .spotify-popup {
-  position: fixed;
-  bottom: 130px; /* above FAB + bottom nav */
-  left: 8px;
+  position: fixed !important;
+  bottom: 130px;
   right: 8px;
-  z-index: 50;
+  left: 8px;
+  z-index: 54;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -115,12 +122,13 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; }
 @media (min-width: 768px) {
   .spotify-fab {
     bottom: 20px;
-    left: 276px;
+    right: 20px;
+    left: auto;
   }
   .spotify-popup {
     bottom: 78px;
-    left: 268px;
-    right: auto;
+    right: 8px;
+    left: auto;
     width: 360px;
   }
 }

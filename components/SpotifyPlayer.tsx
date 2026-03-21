@@ -224,7 +224,7 @@ export default function SpotifyPlayer() {
   if (!token) {
     return (
       <a href="/api/spotify/auth" className="spotify-fab" title="Conectar Spotify"
-        style={{ display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}>
+        style={{ textDecoration: "none" }}>
         <SpotifyIcon size={22} />
       </a>
     );
@@ -350,7 +350,7 @@ export default function SpotifyPlayer() {
 
       {/* Floating action button */}
       <button onClick={() => setIsOpen(!isOpen)} className="spotify-fab" title="Spotify"
-        style={{ border: "none", cursor: "pointer", position: "relative" }}>
+        style={{ border: "none", cursor: "pointer" }}>
         <SpotifyIcon size={22} />
         {track && !track.paused && (
           <span style={{

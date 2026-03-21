@@ -32,7 +32,7 @@ export default function RootLayout({
         <Providers>
           <div className="flex min-h-screen">
             <Sidebar />
-            <main className="flex-1 md:ml-64 pb-20 md:pb-8 min-h-screen">
+            <main className="flex-1 md:ml-64 pb-24 md:pb-8 min-h-screen overflow-x-hidden">
               <div className="max-w-2xl mx-auto px-4 py-6 md:px-6 md:py-8">
                 {children}
               </div>
