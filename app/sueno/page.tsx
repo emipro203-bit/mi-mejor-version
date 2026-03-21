@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -21,6 +21,9 @@ export default function SuenoPage() {
   const [logs, setLogs] = useState<SleepLog[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     date: todayISO(), bedtime: "22:30", wakeTime: "06:30",
     quality: "4", bodyBattery: "", stressScore: "", notes: "",
@@ -28,6 +31,25 @@ export default function SuenoPage() {
 
   const fetchLogs = async () => { setLogs(await (await fetch("/api/sleep")).json()); };
   useEffect(() => { fetchLogs(); }, []);
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportMsg(null);
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/sleep/import", { method: "POST", body: formData });
+    const data = await res.json();
+    if (res.ok) {
+      setImportMsg(`✓ ${data.imported} registros importados${data.skipped > 0 ? ` · ${data.skipped} omitidos` : ""}`);
+      await fetchLogs();
+    } else {
+      setImportMsg("Error al importar el archivo");
+    }
+    setImporting(false);
+    e.target.value = "";
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -69,8 +91,20 @@ export default function SuenoPage() {
           }}>Sueño 🌙</h1>
           <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>Promedio: {avgHours}h · Calidad: {avgQuality}/5</p>
         </div>
-        <Button onClick={() => setShowForm(!showForm)} size="sm">{showForm ? "Cancelar" : "+ Registrar"}</Button>
+        <div className="flex gap-2 items-center">
+          <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
+          <Button onClick={() => fileInputRef.current?.click()} size="sm" disabled={importing}
+            style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--muted)" }}>
+            {importing ? "Importando..." : "Importar CSV"}
+          </Button>
+          <Button onClick={() => setShowForm(!showForm)} size="sm">{showForm ? "Cancelar" : "+ Registrar"}</Button>
+        </div>
       </div>
+      {importMsg && (
+        <div className="text-sm px-3 py-2 rounded-xl" style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--muted)" }}>
+          {importMsg}
+        </div>
+      )}
 
       {showForm && (
         <Card>
