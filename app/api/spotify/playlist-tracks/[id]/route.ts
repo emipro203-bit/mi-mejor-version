@@ -40,17 +40,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   }
 
   const data = JSON.parse(body);
-  const items = data.tracks?.items ?? [];
-  const tracks = items
-    .filter((i: { track: unknown }) => i?.track)
-    .map((i: { track: { id: string; name: string; uri: string; duration_ms: number; artists: { name: string }[]; album: { images: { url: string }[] } } }) => ({
-      id: i.track.id,
-      name: i.track.name,
-      uri: i.track.uri,
-      artist: i.track.artists.map((a) => a.name).join(", "),
-      duration: i.track.duration_ms,
-      image: i.track.album.images?.[2]?.url ?? i.track.album.images?.[0]?.url ?? "",
-    }));
-
-  return NextResponse.json(tracks);
+  // Debug: return raw structure to understand shape
+  return NextResponse.json({
+    keys: Object.keys(data),
+    tracksKeys: data.tracks ? Object.keys(data.tracks) : null,
+    itemsLength: data.tracks?.items?.length ?? null,
+    firstItem: data.tracks?.items?.[0] ?? null,
+  });
 }
