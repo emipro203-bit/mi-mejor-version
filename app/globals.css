@@ -91,7 +91,23 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; }
 @media (min-width: 768px) {
   .spotify-bar {
     bottom: 0;
-    left: 256px; /* sidebar width */
+    left: 256px;
     right: 0;
   }
+  .spotify-panel {
+    bottom: 56px;
+    left: 256px;
+    right: 0;
+  }
+}
+
+/* Spotify playlist panel */
+.spotify-panel {
+  position: fixed;
+  bottom: 112px; /* above player + bottom nav on mobile */
+  left: 0;
+  right: 0;
+  z-index: 48;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
 }

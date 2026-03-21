@@ -35,6 +35,14 @@ interface TrackState {
   duration: number;
 }
 
+interface Playlist {
+  id: string;
+  name: string;
+  uri: string;
+  total: number;
+  image: string;
+}
+
 async function fetchToken(): Promise<string | null> {
   const res = await fetch("/api/spotify/token");
   if (!res.ok) return null;
@@ -55,17 +63,20 @@ export default function SpotifyPlayer() {
   const [ready, setReady] = useState(false);
   const [track, setTrack] = useState<TrackState | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
+  const [showPlaylists, setShowPlaylists] = useState(false);
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [loadingPlaylists, setLoadingPlaylists] = useState(false);
   const playerRef = useRef<SpotifyPlayerInstance | null>(null);
+  const tokenRef = useRef<string | null>(null);
   const positionRef = useRef(0);
   const tickRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load token on mount
   useEffect(() => {
-    fetchToken().then(setToken);
+    fetchToken().then((t) => { setToken(t); tokenRef.current = t; });
   }, []);
 
   const getToken = useCallback((cb: (t: string) => void) => {
-    fetchToken().then((t) => { if (t) cb(t); });
+    fetchToken().then((t) => { if (t) { tokenRef.current = t; cb(t); } });
   }, []);
 
   // Init SDK
@@ -89,9 +100,7 @@ export default function SpotifyPlayer() {
       player.addListener("player_state_changed", (state) => {
         if (!state) { setTrack(null); return; }
         const s = state as {
-          paused: boolean;
-          position: number;
-          duration: number;
+          paused: boolean; position: number; duration: number;
           track_window: { current_track: { name: string; artists: { name: string }[]; album: { images: { url: string }[] } } };
         };
         const t = s.track_window.current_track;
@@ -105,7 +114,6 @@ export default function SpotifyPlayer() {
         };
         setTrack(newTrack);
         positionRef.current = s.position;
-
         if (tickRef.current) clearInterval(tickRef.current);
         if (!s.paused) {
           tickRef.current = setInterval(() => {
@@ -137,12 +145,48 @@ export default function SpotifyPlayer() {
     };
   }, [token, getToken]);
 
-  // Not connected to Spotify at all
+  const openPlaylists = async () => {
+    if (showPlaylists) { setShowPlaylists(false); return; }
+    setShowPlaylists(true);
+    if (playlists.length > 0) return;
+    setLoadingPlaylists(true);
+    const t = tokenRef.current ?? token;
+    if (!t) return;
+    const res = await fetch("https://api.spotify.com/v1/me/playlists?limit=50", {
+      headers: { Authorization: `Bearer ${t}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setPlaylists(data.items.map((p: {
+        id: string; name: string; uri: string;
+        tracks: { total: number };
+        images: { url: string }[];
+      }) => ({
+        id: p.id,
+        name: p.name,
+        uri: p.uri,
+        total: p.tracks.total,
+        image: p.images?.[0]?.url ?? "",
+      })));
+    }
+    setLoadingPlaylists(false);
+  };
+
+  const playPlaylist = async (uri: string) => {
+    const t = tokenRef.current ?? token;
+    if (!t || !deviceId) return;
+    await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${t}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ context_uri: uri }),
+    });
+    setShowPlaylists(false);
+  };
+
   if (!token) {
     return (
       <div className="spotify-bar" style={{ padding: "10px 16px" }}>
-        <a href="/api/spotify/auth" className="flex items-center gap-2 text-sm"
-          style={{ color: "var(--muted)" }}>
+        <a href="/api/spotify/auth" className="flex items-center gap-2 text-sm" style={{ color: "var(--muted)" }}>
           <span style={{ color: "#1DB954", fontSize: 18 }}>♫</span>
           Conectar Spotify
         </a>
@@ -150,68 +194,103 @@ export default function SpotifyPlayer() {
     );
   }
 
-  // SDK loading / no track
-  if (!track) {
-    return (
-      <div className="spotify-bar" style={{ padding: "10px 16px" }}>
-        <div className="flex items-center gap-2 text-sm" style={{ color: "var(--muted)" }}>
-          <span style={{ color: "#1DB954", fontSize: 18 }}>♫</span>
-          {ready ? "Esperando reproducción..." : "Conectando reproductor..."}
-        </div>
-      </div>
-    );
-  }
-
-  const progress = track.duration > 0 ? (track.position / track.duration) * 100 : 0;
+  const progress = track && track.duration > 0 ? (track.position / track.duration) * 100 : 0;
   const fmt = (ms: number) => {
     const s = Math.floor(ms / 1000);
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   };
 
   return (
-    <div className="spotify-bar">
-      {/* Progress bar */}
-      <div style={{ height: 2, background: "var(--border)", position: "relative" }}>
-        <div style={{ height: "100%", width: `${progress}%`, background: "#1DB954", transition: "width 1s linear" }} />
-      </div>
+    <>
+      {/* Playlist panel */}
+      {showPlaylists && (
+        <div className="spotify-panel">
+          <div style={{ padding: "10px 12px 6px", borderBottom: "1px solid var(--border)" }}>
+            <span className="text-xs font-medium" style={{ color: "var(--muted)" }}>Tus playlists</span>
+          </div>
+          <div style={{ overflowY: "auto", maxHeight: 280 }}>
+            {loadingPlaylists ? (
+              <div className="text-xs text-center py-6" style={{ color: "var(--muted)" }}>Cargando...</div>
+            ) : playlists.map((pl) => (
+              <button key={pl.id} onClick={() => playPlaylist(pl.uri)}
+                className="flex items-center gap-3 w-full text-left transition-opacity hover:opacity-80"
+                style={{ padding: "8px 12px", borderBottom: "1px solid var(--border)" }}>
+                {pl.image
+                  ? <img src={pl.image} alt="" width={36} height={36} style={{ borderRadius: 4, flexShrink: 0 }} />
+                  : <div style={{ width: 36, height: 36, borderRadius: 4, background: "var(--border)", flexShrink: 0 }} />
+                }
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-medium truncate" style={{ color: "var(--foreground)" }}>{pl.name}</div>
+                  <div className="text-[10px]" style={{ color: "var(--muted)" }}>{pl.total} canciones</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
-      <div className="flex items-center gap-3" style={{ padding: "8px 12px" }}>
-        {/* Album art */}
-        {track.albumArt && (
-          <img src={track.albumArt} alt="" width={36} height={36}
-            style={{ borderRadius: 4, flexShrink: 0 }} />
+      {/* Player bar */}
+      <div className="spotify-bar">
+        {track && (
+          <div style={{ height: 2, background: "var(--border)" }}>
+            <div style={{ height: "100%", width: `${progress}%`, background: "#1DB954", transition: "width 1s linear" }} />
+          </div>
         )}
+        <div className="flex items-center gap-3" style={{ padding: "8px 12px" }}>
+          {/* Album art or idle state */}
+          {track?.albumArt ? (
+            <img src={track.albumArt} alt="" width={36} height={36} style={{ borderRadius: 4, flexShrink: 0 }} />
+          ) : (
+            <div style={{ width: 36, height: 36, borderRadius: 4, background: "var(--surface)", border: "1px solid var(--border)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ color: "#1DB954", fontSize: 16 }}>♫</span>
+            </div>
+          )}
 
-        {/* Track info */}
-        <div className="flex-1 min-w-0">
-          <div className="text-xs font-medium truncate" style={{ color: "var(--foreground)" }}>{track.name}</div>
-          <div className="text-[10px] truncate" style={{ color: "var(--muted)" }}>{track.artist}</div>
-        </div>
+          {/* Track info */}
+          <div className="flex-1 min-w-0">
+            {track ? (
+              <>
+                <div className="text-xs font-medium truncate" style={{ color: "var(--foreground)" }}>{track.name}</div>
+                <div className="text-[10px] truncate" style={{ color: "var(--muted)" }}>{track.artist}</div>
+              </>
+            ) : (
+              <div className="text-xs" style={{ color: "var(--muted)" }}>
+                {ready ? "Elige una playlist →" : "Conectando..."}
+              </div>
+            )}
+          </div>
 
-        {/* Time */}
-        <div className="text-[10px] flex-shrink-0 hidden sm:block" style={{ color: "var(--muted)" }}>
-          {fmt(track.position)} / {fmt(track.duration)}
-        </div>
+          {/* Time */}
+          {track && (
+            <div className="text-[10px] flex-shrink-0 hidden sm:block" style={{ color: "var(--muted)" }}>
+              {fmt(track.position)} / {fmt(track.duration)}
+            </div>
+          )}
 
-        {/* Controls */}
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <button onClick={() => playerRef.current?.previousTrack()}
-            className="p-1.5 rounded-lg transition-opacity hover:opacity-100 opacity-60"
-            style={{ color: "var(--foreground)" }}>
-            ⏮
+          {/* Playlist button */}
+          <button onClick={openPlaylists}
+            className="p-1.5 rounded-lg transition-opacity hover:opacity-100"
+            style={{ color: showPlaylists ? "#1DB954" : "var(--muted)", fontSize: 16 }}
+            title="Playlists">
+            ☰
           </button>
-          <button onClick={() => playerRef.current?.togglePlay()}
-            className="p-1.5 rounded-full flex items-center justify-center"
-            style={{ background: "#1DB954", color: "#000", width: 28, height: 28, fontSize: 12 }}>
-            {track.paused ? "▶" : "⏸"}
-          </button>
-          <button onClick={() => playerRef.current?.nextTrack()}
-            className="p-1.5 rounded-lg transition-opacity hover:opacity-100 opacity-60"
-            style={{ color: "var(--foreground)" }}>
-            ⏭
-          </button>
+
+          {/* Controls */}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button onClick={() => playerRef.current?.previousTrack()}
+              className="p-1.5 rounded-lg transition-opacity hover:opacity-100 opacity-60"
+              style={{ color: "var(--foreground)" }}>⏮</button>
+            <button onClick={() => playerRef.current?.togglePlay()}
+              className="p-1.5 rounded-full flex items-center justify-center"
+              style={{ background: "#1DB954", color: "#000", width: 28, height: 28, fontSize: 12 }}>
+              {track?.paused !== false ? "▶" : "⏸"}
+            </button>
+            <button onClick={() => playerRef.current?.nextTrack()}
+              className="p-1.5 rounded-lg transition-opacity hover:opacity-100 opacity-60"
+              style={{ color: "var(--foreground)" }}>⏭</button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
