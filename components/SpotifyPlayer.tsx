@@ -150,24 +150,35 @@ export default function SpotifyPlayer() {
     setShowPlaylists(true);
     if (playlists.length > 0) return;
     setLoadingPlaylists(true);
-    const t = tokenRef.current ?? token;
-    if (!t) return;
-    const res = await fetch("https://api.spotify.com/v1/me/playlists?limit=50", {
-      headers: { Authorization: `Bearer ${t}` },
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setPlaylists(data.items.map((p: {
-        id: string; name: string; uri: string;
-        tracks: { total: number };
-        images: { url: string }[];
-      }) => ({
-        id: p.id,
-        name: p.name,
-        uri: p.uri,
-        total: p.tracks.total,
-        image: p.images?.[0]?.url ?? "",
-      })));
+    try {
+      // Always fetch a fresh token
+      const t = await fetchToken();
+      if (!t) { setLoadingPlaylists(false); return; }
+      tokenRef.current = t;
+
+      const res = await fetch("https://api.spotify.com/v1/me/playlists?limit=50", {
+        headers: { Authorization: `Bearer ${t}` },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setPlaylists((data.items ?? []).map((p: {
+          id: string; name: string; uri: string;
+          tracks: { total: number };
+          images: { url: string }[];
+        }) => ({
+          id: p.id,
+          name: p.name,
+          uri: p.uri,
+          total: p.tracks.total,
+          image: p.images?.[0]?.url ?? "",
+        })));
+      } else {
+        const err = await res.text();
+        console.error("Spotify playlists error:", res.status, err);
+      }
+    } catch (e) {
+      console.error("openPlaylists error:", e);
     }
     setLoadingPlaylists(false);
   };
@@ -211,6 +222,8 @@ export default function SpotifyPlayer() {
           <div style={{ overflowY: "auto", maxHeight: 280 }}>
             {loadingPlaylists ? (
               <div className="text-xs text-center py-6" style={{ color: "var(--muted)" }}>Cargando...</div>
+            ) : playlists.length === 0 ? (
+              <div className="text-xs text-center py-6" style={{ color: "var(--muted)" }}>No se encontraron playlists</div>
             ) : playlists.map((pl) => (
               <button key={pl.id} onClick={() => playPlaylist(pl.uri)}
                 className="flex items-center gap-3 w-full text-left transition-opacity hover:opacity-80"
