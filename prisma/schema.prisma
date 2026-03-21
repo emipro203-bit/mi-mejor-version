@@ -146,3 +146,12 @@ model UserBadge {
 
   @@unique([userId, badge])
 }
+
+model SpotifyToken {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  accessToken  String
+  refreshToken String
+  expiresAt    Int
+  updatedAt    DateTime @updatedAt
+}

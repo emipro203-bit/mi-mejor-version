@@ -75,3 +75,23 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; }
   border-radius: 3px;
   transition: width 0.5s ease;
 }
+
+/* Spotify player bar */
+.spotify-bar {
+  position: fixed;
+  bottom: 56px; /* above BottomNav on mobile */
+  left: 0;
+  right: 0;
+  z-index: 49;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+}
+
+@media (min-width: 768px) {
+  .spotify-bar {
+    bottom: 0;
+    left: 256px; /* sidebar width */
+    right: 0;
+  }
+}
