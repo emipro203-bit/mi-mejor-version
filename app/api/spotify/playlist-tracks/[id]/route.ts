@@ -40,18 +40,20 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   }
 
   const data = JSON.parse(body);
-  return NextResponse.json({ keys: Object.keys(data), itemsType: typeof data.items, itemsIsArray: Array.isArray(data.items), itemsLength: Array.isArray(data.items) ? data.items.length : null, firstItemKeys: Array.isArray(data.items) && data.items[0] ? Object.keys(data.items[0]) : null });
   const items = data.items ?? [];
   const tracks = items
-    .filter((i: { track: unknown }) => i?.track)
-    .map((i: { track: { id: string; name: string; uri: string; duration_ms: number; artists: { name: string }[]; album: { images: { url: string }[] } } }) => ({
-      id: i.track.id,
-      name: i.track.name,
-      uri: i.track.uri,
-      artist: i.track.artists.map((a) => a.name).join(", "),
-      duration: i.track.duration_ms,
-      image: i.track.album.images?.[2]?.url ?? i.track.album.images?.[0]?.url ?? "",
-    }));
+    .filter((i: { item?: unknown; track?: unknown }) => i?.item ?? i?.track)
+    .map((i: { item?: { id: string; name: string; uri: string; duration_ms: number; artists: { name: string }[]; album: { images: { url: string }[] } }; track?: { id: string; name: string; uri: string; duration_ms: number; artists: { name: string }[]; album: { images: { url: string }[] } } }) => {
+      const t = i.item ?? i.track!;
+      return {
+        id: t.id,
+        name: t.name,
+        uri: t.uri,
+        artist: t.artists.map((a) => a.name).join(", "),
+        duration: t.duration_ms,
+        image: t.album.images?.[2]?.url ?? t.album.images?.[0]?.url ?? "",
+      };
+    });
 
   return NextResponse.json(tracks);
 }
