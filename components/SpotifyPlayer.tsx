@@ -43,6 +43,15 @@ interface Playlist {
   image: string;
 }
 
+interface Track {
+  id: string;
+  name: string;
+  uri: string;
+  artist: string;
+  duration: number;
+  image: string;
+}
+
 async function fetchToken(): Promise<string | null> {
   const res = await fetch("/api/spotify/token");
   if (!res.ok) return null;
@@ -66,6 +75,9 @@ export default function SpotifyPlayer() {
   const [showPlaylists, setShowPlaylists] = useState(false);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [loadingPlaylists, setLoadingPlaylists] = useState(false);
+  const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null);
+  const [tracks, setTracks] = useState<Track[]>([]);
+  const [loadingTracks, setLoadingTracks] = useState(false);
   const playerRef = useRef<SpotifyPlayerInstance | null>(null);
   const tokenRef = useRef<string | null>(null);
   const positionRef = useRef(0);
@@ -176,15 +188,25 @@ export default function SpotifyPlayer() {
     setLoadingPlaylists(false);
   };
 
-  const playPlaylist = async (uri: string) => {
+  const openPlaylist = async (pl: Playlist) => {
+    setSelectedPlaylist(pl);
+    setTracks([]);
+    setLoadingTracks(true);
+    const res = await fetch(`/api/spotify/playlist-tracks/${pl.id}`);
+    if (res.ok) setTracks(await res.json());
+    setLoadingTracks(false);
+  };
+
+  const playTrack = async (trackUri: string, playlistUri: string) => {
     const t = tokenRef.current ?? token;
     if (!t || !deviceId) return;
     await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
       method: "PUT",
       headers: { Authorization: `Bearer ${t}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ context_uri: uri }),
+      body: JSON.stringify({ context_uri: playlistUri, offset: { uri: trackUri } }),
     });
     setShowPlaylists(false);
+    setSelectedPlaylist(null);
   };
 
   if (!token) {
@@ -206,31 +228,57 @@ export default function SpotifyPlayer() {
 
   return (
     <>
-      {/* Playlist panel */}
+      {/* Playlist / Tracks panel */}
       {showPlaylists && (
         <div className="spotify-panel">
-          <div style={{ padding: "10px 12px 6px", borderBottom: "1px solid var(--border)" }}>
-            <span className="text-xs font-medium" style={{ color: "var(--muted)" }}>Tus playlists</span>
+          <div className="flex items-center gap-2" style={{ padding: "8px 12px", borderBottom: "1px solid var(--border)" }}>
+            {selectedPlaylist && (
+              <button onClick={() => setSelectedPlaylist(null)} style={{ color: "var(--muted)", fontSize: 14, lineHeight: 1 }}>←</button>
+            )}
+            <span className="text-xs font-medium truncate" style={{ color: "var(--muted)" }}>
+              {selectedPlaylist ? selectedPlaylist.name : "Tus playlists"}
+            </span>
           </div>
           <div style={{ overflowY: "auto", maxHeight: 280 }}>
-            {loadingPlaylists ? (
-              <div className="text-xs text-center py-6" style={{ color: "var(--muted)" }}>Cargando...</div>
-            ) : playlists.length === 0 ? (
-              <div className="text-xs text-center py-6" style={{ color: "var(--muted)" }}>No se encontraron playlists</div>
-            ) : playlists.map((pl) => (
-              <button key={pl.id} onClick={() => playPlaylist(pl.uri)}
-                className="flex items-center gap-3 w-full text-left transition-opacity hover:opacity-80"
-                style={{ padding: "8px 12px", borderBottom: "1px solid var(--border)" }}>
-                {pl.image
-                  ? <img src={pl.image} alt="" width={36} height={36} style={{ borderRadius: 4, flexShrink: 0 }} />
-                  : <div style={{ width: 36, height: 36, borderRadius: 4, background: "var(--border)", flexShrink: 0 }} />
-                }
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium truncate" style={{ color: "var(--foreground)" }}>{pl.name}</div>
-                  <div className="text-[10px]" style={{ color: "var(--muted)" }}>{pl.total} canciones</div>
-                </div>
-              </button>
-            ))}
+            {!selectedPlaylist ? (
+              loadingPlaylists ? (
+                <div className="text-xs text-center py-6" style={{ color: "var(--muted)" }}>Cargando...</div>
+              ) : playlists.length === 0 ? (
+                <div className="text-xs text-center py-6" style={{ color: "var(--muted)" }}>No se encontraron playlists</div>
+              ) : playlists.map((pl) => (
+                <button key={pl.id} onClick={() => openPlaylist(pl)}
+                  className="flex items-center gap-3 w-full text-left transition-opacity hover:opacity-80"
+                  style={{ padding: "8px 12px", borderBottom: "1px solid var(--border)" }}>
+                  {pl.image
+                    ? <img src={pl.image} alt="" width={36} height={36} style={{ borderRadius: 4, flexShrink: 0 }} />
+                    : <div style={{ width: 36, height: 36, borderRadius: 4, background: "var(--border)", flexShrink: 0 }} />
+                  }
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium truncate" style={{ color: "var(--foreground)" }}>{pl.name}</div>
+                    <div className="text-[10px]" style={{ color: "var(--muted)" }}>{pl.total} canciones</div>
+                  </div>
+                  <span style={{ color: "var(--muted)", fontSize: 12 }}>›</span>
+                </button>
+              ))
+            ) : (
+              loadingTracks ? (
+                <div className="text-xs text-center py-6" style={{ color: "var(--muted)" }}>Cargando canciones...</div>
+              ) : tracks.map((t, i) => (
+                <button key={t.id} onClick={() => playTrack(t.uri, selectedPlaylist.uri)}
+                  className="flex items-center gap-3 w-full text-left transition-opacity hover:opacity-80"
+                  style={{ padding: "7px 12px", borderBottom: "1px solid var(--border)" }}>
+                  <span className="text-[10px] flex-shrink-0 w-5 text-right" style={{ color: "var(--muted)" }}>{i + 1}</span>
+                  {t.image
+                    ? <img src={t.image} alt="" width={32} height={32} style={{ borderRadius: 3, flexShrink: 0 }} />
+                    : <div style={{ width: 32, height: 32, borderRadius: 3, background: "var(--border)", flexShrink: 0 }} />
+                  }
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium truncate" style={{ color: "var(--foreground)" }}>{t.name}</div>
+                    <div className="text-[10px] truncate" style={{ color: "var(--muted)" }}>{t.artist}</div>
+                  </div>
+                </button>
+              ))
+            )}
           </div>
         </div>
       )}
