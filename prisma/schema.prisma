@@ -147,6 +147,16 @@ model UserBadge {
   @@unique([userId, badge])
 }
 
+model StravaToken {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  accessToken  String
+  refreshToken String
+  expiresAt    Int
+  athleteId    Int?
+  updatedAt    DateTime @updatedAt
+}
+
 model SpotifyToken {
   id           String   @id @default(cuid())
   userId       String   @unique
