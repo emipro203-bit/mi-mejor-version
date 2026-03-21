@@ -31,14 +31,21 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const token = await getFreshToken(userId);
   if (!token) return NextResponse.json({ error: "no_token" }, { status: 401 });
 
-  const res = await fetch(
-    `https://api.spotify.com/v1/playlists/${id}/tracks?limit=50`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
+  // Try /items endpoint (newer Spotify API)
+  const url = `https://api.spotify.com/v1/playlists/${id}/tracks?limit=50&market=from_token`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  const body = await res.text();
 
-  if (!res.ok) return NextResponse.json({ error: await res.text() }, { status: res.status });
+  if (!res.ok) {
+    return NextResponse.json({
+      error: body,
+      status: res.status,
+      tokenPrefix: token.slice(0, 10),
+      url,
+    }, { status: res.status });
+  }
 
-  const data = await res.json();
+  const data = JSON.parse(body);
   const tracks = (data.items ?? [])
     .filter((i: { track: unknown }) => i.track)
     .map((i: { track: { id: string; name: string; uri: string; duration_ms: number; artists: { name: string }[]; album: { images: { url: string }[] } } }) => ({
