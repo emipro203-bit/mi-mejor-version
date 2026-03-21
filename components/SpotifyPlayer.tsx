@@ -151,18 +151,10 @@ export default function SpotifyPlayer() {
     if (playlists.length > 0) return;
     setLoadingPlaylists(true);
     try {
-      // Always fetch a fresh token
-      const t = await fetchToken();
-      if (!t) { setLoadingPlaylists(false); return; }
-      tokenRef.current = t;
-
-      const res = await fetch("https://api.spotify.com/v1/me/playlists?limit=50", {
-        headers: { Authorization: `Bearer ${t}` },
-      });
-
+      const res = await fetch("/api/spotify/playlists");
       if (res.ok) {
-        const data = await res.json();
-        setPlaylists((data.items ?? []).map((p: {
+        const items = await res.json();
+        setPlaylists((items ?? []).map((p: {
           id: string; name: string; uri: string;
           tracks: { total: number };
           images: { url: string }[];
@@ -174,8 +166,8 @@ export default function SpotifyPlayer() {
           image: p.images?.[0]?.url ?? "",
         })));
       } else {
-        const err = await res.text();
-        console.error("Spotify playlists error:", res.status, err);
+        const err = await res.json();
+        console.error("Spotify playlists error:", err);
       }
     } catch (e) {
       console.error("openPlaylists error:", e);
