@@ -156,13 +156,14 @@ export default function SpotifyPlayer() {
         const items = await res.json();
         setPlaylists((items ?? []).map((p: {
           id: string; name: string; uri: string;
-          tracks: { total: number };
-          images: { url: string }[];
+          tracks?: { total: number };
+          items?: { total: number };
+          images?: { url: string }[] | null;
         }) => ({
           id: p.id,
           name: p.name,
           uri: p.uri,
-          total: p.tracks.total,
+          total: p.tracks?.total ?? p.items?.total ?? 0,
           image: p.images?.[0]?.url ?? "",
         })));
       } else {
