@@ -32,7 +32,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!token) return NextResponse.json({ error: "no_token" }, { status: 401 });
 
   const res = await fetch(
-    `https://api.spotify.com/v1/playlists/${id}/tracks?limit=50&fields=items(track(id,name,uri,duration_ms,artists(name),album(images)))`,
+    `https://api.spotify.com/v1/playlists/${id}/tracks?limit=50`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
 
