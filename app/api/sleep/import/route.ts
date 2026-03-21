@@ -2,78 +2,66 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getUserId, unauthorized } from "@/lib/session";
 
-function parseCSVLine(line: string): string[] {
+const MONTHS: Record<string, number> = {
+  Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+  Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+};
+
+// Parse "7h 34min" or "7h" or "45min" → decimal hours
+function parseDuration(val: string): number {
+  const h = val.match(/(\d+)\s*h/);
+  const m = val.match(/(\d+)\s*min/);
+  const hours = h ? parseInt(h[1]) : 0;
+  const mins = m ? parseInt(m[1]) : 0;
+  return Math.round((hours + mins / 60) * 10) / 10;
+}
+
+// Parse "11:10 PM" or "6:50 AM" → "23:10" / "06:50"
+function parseTime12(val: string): string {
+  const match = val.trim().match(/(\d+):(\d+)\s*(AM|PM)/i);
+  if (!match) return "00:00";
+  let h = parseInt(match[1]);
+  const m = match[2];
+  const period = match[3].toUpperCase();
+  if (period === "AM" && h === 12) h = 0;
+  if (period === "PM" && h !== 12) h += 12;
+  return `${String(h).padStart(2, "0")}:${m}`;
+}
+
+// "Mar 15-21" → array of 7 Date objects; infer year from current date
+function parseWeekRange(val: string): Date[] {
+  const match = val.trim().match(/^(\w{3})\s+(\d+)-(\d+)$/);
+  if (!match) return [];
+  const month = MONTHS[match[1]];
+  if (month === undefined) return [];
+  const startDay = parseInt(match[2]);
+  const endDay = parseInt(match[3]);
+
+  const now = new Date();
+  let year = now.getFullYear();
+  // If the month is ahead of current month, it's the previous year
+  if (month > now.getMonth()) year -= 1;
+
+  const dates: Date[] = [];
+  for (let d = startDay; d <= endDay; d++) {
+    dates.push(new Date(Date.UTC(year, month, d)));
+  }
+  return dates;
+}
+
+// Parse TSV or CSV line
+function parseLine(line: string, sep: string): string[] {
+  if (sep === "\t") return line.split("\t").map((v) => v.trim());
   const result: string[] = [];
   let current = "";
   let inQuotes = false;
   for (let i = 0; i < line.length; i++) {
-    if (line[i] === '"') {
-      inQuotes = !inQuotes;
-    } else if (line[i] === "," && !inQuotes) {
-      result.push(current);
-      current = "";
-    } else {
-      current += line[i];
-    }
+    if (line[i] === '"') { inQuotes = !inQuotes; }
+    else if (line[i] === "," && !inQuotes) { result.push(current); current = ""; }
+    else { current += line[i]; }
   }
   result.push(current);
-  return result;
-}
-
-function parseCSV(text: string): Record<string, string>[] {
-  const lines = text.trim().split(/\r?\n/);
-  if (lines.length < 2) return [];
-  const headers = parseCSVLine(lines[0]).map((h) => h.trim().replace(/^"|"$/g, ""));
-  return lines
-    .slice(1)
-    .map((line) => {
-      const values = parseCSVLine(line);
-      const row: Record<string, string> = {};
-      headers.forEach((h, i) => {
-        row[h] = (values[i] ?? "").trim().replace(/^"|"$/g, "");
-      });
-      return row;
-    })
-    .filter((row) => Object.values(row).some((v) => v));
-}
-
-function getField(row: Record<string, string>, ...keys: string[]): string {
-  for (const key of keys) {
-    if (row[key] !== undefined && row[key] !== "") return row[key];
-  }
-  return "";
-}
-
-function parseTimestamp(ts: string): { date: Date; time: string } | null {
-  // Handles "2024-01-15 22:30:00", "2024-01-15T22:30:00", "01/15/2024 22:30"
-  const clean = ts.trim();
-  const match = clean.match(/(\d{4}[-/]\d{2}[-/]\d{2})[T\s](\d{2}:\d{2})/) ||
-    clean.match(/(\d{2}[-/]\d{2}[-/]\d{4})[T\s](\d{2}:\d{2})/);
-  if (!match) return null;
-  const datePart = match[1].replace(/\//g, "-");
-  const timePart = match[2];
-  return {
-    date: new Date(datePart + "T12:00:00Z"),
-    time: timePart,
-  };
-}
-
-function sleepDurationToHours(value: string): number {
-  const n = parseFloat(value);
-  if (isNaN(n)) return 0;
-  // Garmin exports in seconds (e.g. 28800 = 8h); if < 24 assume already hours
-  return n < 24 ? Math.round(n * 10) / 10 : Math.round((n / 3600) * 10) / 10;
-}
-
-function scoreToQuality(score: string): number {
-  const s = parseFloat(score);
-  if (isNaN(s)) return 3;
-  // Garmin scores 0–100 → quality 1–5
-  if (s >= 80) return 5;
-  if (s >= 60) return 4;
-  if (s >= 40) return 3;
-  if (s >= 20) return 2;
-  return 1;
+  return result.map((v) => v.trim().replace(/^"|"$/g, ""));
 }
 
 export async function POST(req: Request) {
@@ -85,28 +73,68 @@ export async function POST(req: Request) {
   if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
 
   const text = await file.text();
-  const rows = parseCSV(text);
+  const lines = text.trim().split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) return NextResponse.json({ imported: 0, skipped: 0 });
+
+  // Detect separator
+  const sep = lines[0].includes("\t") ? "\t" : ",";
+  const headers = parseLine(lines[0], sep);
 
   let imported = 0;
   let skipped = 0;
 
-  for (const row of rows) {
+  for (const line of lines.slice(1)) {
+    const values = parseLine(line, sep);
+    const row: Record<string, string> = {};
+    headers.forEach((h, i) => { row[h] = values[i] ?? ""; });
+
     try {
-      const beginTs = getField(row, "Begin Timestamp", "Start Time", "Sleep Start", "Timestamp", "Date");
+      // --- Weekly summary format: "Mar 15-21" ---
+      const dateVal = row["Date"] ?? "";
+      if (/^\w{3}\s+\d+-\d+$/.test(dateVal.trim())) {
+        const days = parseWeekRange(dateVal);
+        if (days.length === 0) { skipped++; continue; }
+
+        const durationStr = row["Avg Duration"] ?? "";
+        const bedtimeStr = row["Avg Bedtime"] ?? "";
+        const wakeStr = row["Avg Wake Time"] ?? "";
+
+        const hours = parseDuration(durationStr);
+        if (hours <= 0 || hours > 16) { skipped++; continue; }
+
+        const bedtime = parseTime12(bedtimeStr);
+        const wakeTime = parseTime12(wakeStr);
+
+        for (const date of days) {
+          await prisma.sleepLog.upsert({
+            where: { userId_date: { userId, date } },
+            update: { bedtime, wakeTime, hours, quality: 3 },
+            create: { userId, date, bedtime, wakeTime, hours, quality: 3 },
+          });
+          imported++;
+        }
+        continue;
+      }
+
+      // --- Daily format with timestamps ---
+      const beginTs = row["Begin Timestamp"] ?? row["Start Time"] ?? row["Sleep Start"] ?? "";
       if (!beginTs) { skipped++; continue; }
 
-      const parsed = parseTimestamp(beginTs);
-      if (!parsed) { skipped++; continue; }
+      const tsMatch = beginTs.match(/(\d{4}-\d{2}-\d{2})[T\s](\d{2}:\d{2})/);
+      if (!tsMatch) { skipped++; continue; }
 
-      const { date, time: bedtime } = parsed;
+      const date = new Date(tsMatch[1] + "T12:00:00Z");
+      const bedtime = tsMatch[2];
 
-      const endTs = getField(row, "End Timestamp", "Wake Time", "Sleep End", "End Time");
-      const wakeTime = endTs ? (parseTimestamp(endTs)?.time ?? "06:00") : "06:00";
+      const endTs = row["End Timestamp"] ?? row["Wake Time"] ?? row["Sleep End"] ?? "";
+      const endMatch = endTs.match(/(\d{2}:\d{2})/);
+      const wakeTime = endMatch ? endMatch[1] : "06:00";
 
-      const totalSleepStr = getField(row, "Total Sleep Time", "Total Sleep (seconds)", "Hrs. of Sleep", "Sleep Time (seconds)");
+      const totalStr = row["Total Sleep Time"] ?? row["Hrs. of Sleep"] ?? "";
       let hours: number;
-      if (totalSleepStr) {
-        hours = sleepDurationToHours(totalSleepStr);
+      if (totalStr) {
+        const n = parseFloat(totalStr);
+        hours = n < 24 ? Math.round(n * 10) / 10 : Math.round((n / 3600) * 10) / 10;
       } else {
         const [bH, bM] = bedtime.split(":").map(Number);
         const [wH, wM] = wakeTime.split(":").map(Number);
@@ -118,13 +146,14 @@ export async function POST(req: Request) {
 
       if (hours <= 0 || hours > 16) { skipped++; continue; }
 
-      const scoreStr = getField(row, "Combined Score", "Adult Sleep Rating", "Sleep Score", "Quality");
-      const quality = scoreStr ? scoreToQuality(scoreStr) : 3;
+      const scoreStr = row["Combined Score"] ?? row["Adult Sleep Rating"] ?? row["Sleep Score"] ?? "";
+      const s = parseFloat(scoreStr);
+      const quality = isNaN(s) ? 3 : s >= 80 ? 5 : s >= 60 ? 4 : s >= 40 ? 3 : s >= 20 ? 2 : 1;
 
-      const bbStr = getField(row, "Body Battery Charge", "Body Battery (End of Sleep)", "Body Battery");
+      const bbStr = row["Body Battery Charge"] ?? row["Body Battery"] ?? "";
       const bodyBattery = bbStr && !isNaN(parseFloat(bbStr)) ? Math.round(parseFloat(bbStr)) : null;
 
-      const stressStr = getField(row, "Avg Stress during sleep", "Average Stress", "Stress Score");
+      const stressStr = row["Avg Stress during sleep"] ?? row["Average Stress"] ?? "";
       const stressScore = stressStr && !isNaN(parseFloat(stressStr)) ? Math.round(parseFloat(stressStr)) : null;
 
       await prisma.sleepLog.upsert({
