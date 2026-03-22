@@ -187,6 +187,18 @@ export default function HoyPage() {
         </h1>
       </div>
 
+      {/* Sunday weekly review nudge */}
+      {new Date().getDay() === 0 && (
+        <a href="/semana" className="flex items-center gap-3 rounded-2xl px-4 py-3 transition-opacity hover:opacity-80"
+          style={{ background: "rgba(201,168,76,0.10)", border: "1px solid rgba(201,168,76,0.3)", textDecoration: "none" }}>
+          <span style={{ fontSize: 24 }}>📋</span>
+          <div>
+            <p className="text-sm font-semibold" style={{ color: "var(--gold)" }}>Semana en Revisión</p>
+            <p className="text-xs" style={{ color: "var(--muted)" }}>Es domingo — revisa cómo fue tu semana →</p>
+          </div>
+        </a>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-4 gap-2">
         {[

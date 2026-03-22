@@ -165,3 +165,13 @@ model SpotifyToken {
   expiresAt    Int
   updatedAt    DateTime @updatedAt
 }
+
+model WeeklyNote {
+  id        String   @id @default(cuid())
+  userId    String
+  weekStart DateTime @db.Date
+  note      String   @default("")
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, weekStart])
+}

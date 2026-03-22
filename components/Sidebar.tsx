@@ -18,6 +18,7 @@ const navItems = [
   { href: "/recordatorios", label: "Recordatorios", icon: "🔔" },
   { href: "/pomodoro", label: "Pomodoro", icon: "🍅" },
   { href: "/logros", label: "Logros", icon: "🏆" },
+  { href: "/semana", label: "Semana en Revisión", icon: "📋" },
   { href: "/cuenta", label: "Mi Cuenta", icon: "👤" },
 ];
 
