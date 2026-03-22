@@ -75,6 +75,46 @@ function SpotifyIcon({ size = 22 }: { size?: number }) {
   );
 }
 
+function IconPrev() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/>
+    </svg>
+  );
+}
+
+function IconNext() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M6 18l8.5-6L6 6v12zm2-8.14 5.5 2.64L8 15.14V9.86zM16 6h2v12h-2z"/>
+    </svg>
+  );
+}
+
+function IconPlay() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M8 5v14l11-7z"/>
+    </svg>
+  );
+}
+
+function IconPause() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+    </svg>
+  );
+}
+
+function IconQueue() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+    </svg>
+  );
+}
+
 export default function SpotifyPlayer() {
   const [token, setToken] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -328,20 +368,24 @@ export default function SpotifyPlayer() {
               <div className="flex items-center gap-1 flex-shrink-0">
                 <button onClick={openPlaylists} title="Playlists"
                   className="p-1.5 rounded-lg transition-opacity hover:opacity-100"
-                  style={{ color: showPlaylists ? "#1DB954" : "var(--muted)", fontSize: 15 }}>
-                  ☰
+                  style={{ color: showPlaylists ? "#1DB954" : "var(--muted)", display: "flex" }}>
+                  <IconQueue />
                 </button>
                 <button onClick={() => playerRef.current?.previousTrack()}
-                  className="p-1.5 rounded-lg transition-opacity hover:opacity-100 opacity-60"
-                  style={{ color: "var(--foreground)" }}>⏮</button>
+                  className="p-1.5 rounded-lg transition-opacity hover:opacity-100"
+                  style={{ color: "var(--foreground)", opacity: 0.65, display: "flex" }}>
+                  <IconPrev />
+                </button>
                 <button onClick={() => playerRef.current?.togglePlay()}
-                  className="p-1.5 rounded-full flex items-center justify-center"
-                  style={{ background: "#1DB954", color: "#000", width: 30, height: 30, fontSize: 12, flexShrink: 0 }}>
-                  {track?.paused !== false ? "▶" : "⏸"}
+                  className="rounded-full flex items-center justify-center"
+                  style={{ background: "#1DB954", color: "#000", width: 32, height: 32, flexShrink: 0 }}>
+                  {track?.paused !== false ? <IconPlay /> : <IconPause />}
                 </button>
                 <button onClick={() => playerRef.current?.nextTrack()}
-                  className="p-1.5 rounded-lg transition-opacity hover:opacity-100 opacity-60"
-                  style={{ color: "var(--foreground)" }}>⏭</button>
+                  className="p-1.5 rounded-lg transition-opacity hover:opacity-100"
+                  style={{ color: "var(--foreground)", opacity: 0.65, display: "flex" }}>
+                  <IconNext />
+                </button>
               </div>
             </div>
           </div>
