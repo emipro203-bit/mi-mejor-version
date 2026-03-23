@@ -62,11 +62,17 @@ export default function CalendarioPage() {
     return done / habits.length;
   };
 
+  // Parse date string as UTC noon to avoid timezone-shift to previous day
+  const parseEventDate = (d: string) => {
+    const s = d.length === 10 ? d + "T12:00:00.000Z" : d;
+    return new Date(s);
+  };
+
   const eventsForDay = (day: Date) =>
-    events.filter(e => isSameDay(new Date(e.date), day));
+    events.filter(e => isSameDay(parseEventDate(e.date), day));
 
   const runsForDay = (day: Date) =>
-    runs.filter(r => isSameDay(new Date(r.date), day));
+    runs.filter(r => isSameDay(parseEventDate(r.date), day));
 
   const saveEvent = async () => {
     if (!form.title || !form.date) return;

@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const event = await prisma.calendarEvent.create({
-      data: { userId, title: body.title, date: new Date(body.date), color: body.color || "#C9A84C", type: body.type || "event" },
+      data: { userId, title: body.title, date: new Date(body.date + "T12:00:00.000Z"), color: body.color || "#C9A84C", type: body.type || "event" },
     });
     return NextResponse.json(event, { status: 201 });
   } catch (e) {
@@ -46,7 +46,7 @@ export async function PUT(req: Request) {
     const body = await req.json();
     const event = await prisma.calendarEvent.update({
       where: { id: body.id },
-      data: { title: body.title, date: new Date(body.date), color: body.color, done: body.done },
+      data: { title: body.title, date: new Date(body.date + "T12:00:00.000Z"), color: body.color, done: body.done },
     });
     return NextResponse.json(event);
   } catch (e) {
