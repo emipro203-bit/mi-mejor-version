@@ -62,17 +62,14 @@ export default function CalendarioPage() {
     return done / habits.length;
   };
 
-  // Parse date string as UTC noon to avoid timezone-shift to previous day
-  const parseEventDate = (d: string) => {
-    const s = d.length === 10 ? d + "T12:00:00.000Z" : d;
-    return new Date(s);
-  };
+  // Extract the UTC date string (YYYY-MM-DD) regardless of time component
+  const utcDateStr = (d: string) => new Date(d).toISOString().split("T")[0];
 
   const eventsForDay = (day: Date) =>
-    events.filter(e => isSameDay(parseEventDate(e.date), day));
+    events.filter(e => utcDateStr(e.date) === format(day, "yyyy-MM-dd"));
 
   const runsForDay = (day: Date) =>
-    runs.filter(r => isSameDay(parseEventDate(r.date), day));
+    runs.filter(r => utcDateStr(r.date) === format(day, "yyyy-MM-dd"));
 
   const saveEvent = async () => {
     if (!form.title || !form.date) return;
@@ -315,30 +312,33 @@ export default function CalendarioPage() {
       )}
 
       {/* Upcoming events */}
-      {events.filter(e => new Date(e.date) >= new Date()).length > 0 && (
+      {events.filter(e => utcDateStr(e.date) >= format(new Date(), "yyyy-MM-dd")).length > 0 && (
         <Card>
           <h2 className="text-base font-semibold mb-3" style={{ fontFamily: "'Playfair Display', serif", color: "var(--foreground)" }}>
             Próximos eventos
           </h2>
           <div className="space-y-2">
             {events
-              .filter(e => new Date(e.date) >= new Date())
+              .filter(e => utcDateStr(e.date) >= format(new Date(), "yyyy-MM-dd"))
               .slice(0, 5)
-              .map(ev => (
+              .map(ev => {
+                const evDate = new Date(utcDateStr(ev.date) + "T12:00:00");
+                return (
                 <div key={ev.id} className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-xs font-bold"
                     style={{ background: `${ev.color}20`, color: ev.color }}>
-                    {format(new Date(ev.date), "d")}
+                    {format(evDate, "d")}
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{ev.title}</p>
                     <p className="text-xs capitalize" style={{ color: "var(--muted)" }}>
-                      {format(new Date(ev.date), "EEEE d MMM", { locale: es })}
+                      {format(evDate, "EEEE d MMM", { locale: es })}
                     </p>
                   </div>
                   <button onClick={() => deleteEvent(ev.id)} className="opacity-30 hover:opacity-100 text-xs" style={{ color: "var(--error)" }}>✕</button>
                 </div>
-              ))}
+                );
+              })}
           </div>
         </Card>
       )}
